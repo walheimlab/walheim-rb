@@ -108,8 +108,9 @@ module Walheim
       }
     end
 
+    # Path to resource directory: {data_dir}/namespaces/{namespace}/{kind_plural}/{name}/
     def resource_dir(namespace, name)
-      File.join(@namespaces_dir, namespace, self.class.kind_info[:plural], name)
+      File.join(@data_dir, 'namespaces', namespace, self.class.kind_info[:plural], name)
     end
 
     def resource_exists?(namespace, name)
@@ -141,7 +142,8 @@ module Walheim
     end
 
     def list_single_namespace(namespace)
-      namespace_path = File.join(@namespaces_dir, namespace)
+      namespaces_dir = File.join(@data_dir, 'namespaces')
+      namespace_path = File.join(namespaces_dir, namespace)
 
       unless Dir.exist?(namespace_path)
         warn "Error: namespace '#{namespace}' not found"
@@ -163,18 +165,19 @@ module Walheim
     end
 
     def list_all_namespaces
-      return [] unless Dir.exist?(@namespaces_dir)
+      namespaces_dir = File.join(@data_dir, 'namespaces')
+      return [] unless Dir.exist?(namespaces_dir)
 
       # Find all namespaces
-      namespace_names = Dir.entries(@namespaces_dir)
-                           .select { |entry| File.directory?(File.join(@namespaces_dir, entry)) && !entry.start_with?('.') }
-                           .select { |entry| File.exist?(File.join(@namespaces_dir, entry, '.namespace.yaml')) }
+      namespace_names = Dir.entries(namespaces_dir)
+                           .select { |entry| File.directory?(File.join(namespaces_dir, entry)) && !entry.start_with?('.') }
+                           .select { |entry| File.exist?(File.join(namespaces_dir, entry, '.namespace.yaml')) }
                            .sort
 
       # Collect all resources from all namespaces
       all_resources = []
       namespace_names.each do |namespace|
-        resources_path = File.join(@namespaces_dir, namespace, self.class.kind_info[:plural])
+        resources_path = File.join(namespaces_dir, namespace, self.class.kind_info[:plural])
         next unless Dir.exist?(resources_path)
 
         resource_names = Dir.entries(resources_path)

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'walheim/version'
+require_relative 'walheim/config'
 require_relative 'walheim/handler_registry'
 require_relative 'walheim/resource'
 require_relative 'walheim/cluster_resource'

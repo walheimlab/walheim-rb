@@ -35,7 +35,14 @@ end
 def generate_global_help
   [
     "  create namespace {name} [--username {user}] [--hostname {host}]".ljust(72) + "Create a new namespace",
-    "  apply -f {manifest.yaml}".ljust(72) + "Apply resource from file (use -f - for stdin)"
+    "  apply -f {manifest.yaml}".ljust(72) + "Apply resource from file (use -f - for stdin)",
+    "",
+    "Context commands:",
+    "  context new {name} --data-dir {path}".ljust(72) + "Create a new context",
+    "  context list".ljust(72) + "List all contexts",
+    "  context use {name}".ljust(72) + "Switch to a context",
+    "  context current".ljust(72) + "Show current context",
+    "  context delete {name}".ljust(72) + "Delete a context"
   ]
 end
 
@@ -44,7 +51,9 @@ if ARGV.empty? || ARGV.include?('help') || ARGV.include?('--help') || ARGV.inclu
   puts 'Usage: whctl [global flags] <command> [arguments]'
   puts ''
   puts 'Global flags:'
-  puts '  -d, --data-dir DIR    Data directory containing namespaces (default: current directory)'
+  puts '  --context CONTEXT     Override active context for this command'
+  puts '  --whconfig PATH       Use alternate config file (default: ~/.walheim/config)'
+  puts '  -d, --data-dir DIR    Data directory containing namespaces (deprecated: use contexts)'
   puts ''
   puts 'Available commands:'
   puts ''
@@ -72,9 +81,11 @@ if ARGV.empty? || ARGV.include?('help') || ARGV.include?('--help') || ARGV.inclu
 end
 
 # Parse global flags first
-options = { data_dir: Dir.pwd }
+options = {}
 global_parser = OptionParser.new do |opts|
-  opts.on('-d DIR', '--data-dir DIR', 'Data directory containing namespaces') { |v| options[:data_dir] = v }
+  opts.on('--context CONTEXT', 'Override active context') { |v| options[:context] = v }
+  opts.on('--whconfig PATH', 'Alternate config file path') { |v| options[:whconfig] = v }
+  opts.on('-d DIR', '--data-dir DIR', 'Data directory (deprecated)') { |v| options[:data_dir] = v }
 end
 
 # Parse only global flags, leaving the rest for later
@@ -93,6 +104,7 @@ command_parser = OptionParser.new do |opts|
   opts.on('-n NAMESPACE', '--namespace NAMESPACE', 'Specify namespace') { |v| options[:namespace] = v }
   opts.on('-A', '--all', 'All namespaces') { options[:all_namespaces] = true }
   opts.on('-f FILE', '--file FILE', 'Manifest file path') { |v| options[:file] = v }
+  opts.on('-d DIR', '--data-dir DIR', 'Data directory containing namespaces') { |v| options[:data_dir] = v }
   opts.on('--hostname HOSTNAME', 'Hostname for namespace') { |v| options[:hostname] = v }
   opts.on('--username USERNAME', 'Username for namespace') { |v| options[:username] = v }
 
@@ -116,9 +128,58 @@ name = ARGV[2]
 
 namespace = options[:namespace]
 all_namespaces = options[:all_namespaces]
-data_dir = options[:data_dir]
 
-# Data directory contains the namespaces subdirectory
+# Resolve data directory from context or --data-dir flag
+data_dir = nil
+
+# Skip context resolution for context commands (they manage config themselves)
+unless command == 'context'
+  # Try to load config and resolve data directory from context
+  begin
+    config = Walheim::Config.new(config_path: options[:whconfig])
+
+    # Determine which context to use
+    context_name = options[:context] || config.current_context
+
+    if context_name
+      # Get data directory from the specified or active context
+      data_dir = config.data_dir(context_name)
+    elsif options[:data_dir]
+      # Fall back to --data-dir if provided (deprecated path)
+      data_dir = options[:data_dir]
+      warn "Warning: --data-dir is deprecated. Use 'whctl context new' to create a context."
+    else
+      # No context and no --data-dir
+      warn 'Error: No Walheim configuration found.'
+      warn ''
+      warn 'Create your first context:'
+      warn '  whctl context new <name> --data-dir <path>'
+      warn ''
+      warn 'Example:'
+      warn '  whctl context new homelab --data-dir ~/my-homelab'
+      exit 1
+    end
+  rescue Walheim::Config::ConfigError, Walheim::Config::ValidationError => e
+    # Config file doesn't exist or is invalid
+    if options[:data_dir]
+      # Fall back to --data-dir if provided
+      data_dir = options[:data_dir]
+      warn "Warning: --data-dir is deprecated. Use 'whctl context new' to create a context."
+    else
+      warn 'Error: No Walheim configuration found.'
+      warn ''
+      warn 'Create your first context:'
+      warn '  whctl context new <name> --data-dir <path>'
+      exit 1
+    end
+  end
+end
+
+# Default to current directory if still not set (shouldn't happen but safety)
+data_dir ||= Dir.pwd
+
+# For handlers that need it - namespaced resources use namespaces_dir
+# Cluster resources use data_dir directly
 namespaces_dir = File.join(data_dir, 'namespaces')
 
 # Helper method to read YAML from file or stdin
@@ -244,7 +305,7 @@ when 'get'
     exit 1
   end
 
-  handler = handler_info[:handler].new(namespaces_dir: namespaces_dir)
+  handler = handler_info[:handler].new(data_dir: data_dir)
 
   # Special handling for cluster resources (no namespace argument)
   if handler.is_a?(Walheim::ClusterResource)
@@ -305,7 +366,7 @@ when 'apply'
   end
 
   # Execute operation
-  handler = handler_info[:handler].new(namespaces_dir: namespaces_dir)
+  handler = handler_info[:handler].new(data_dir: data_dir)
   handler.apply(namespace: namespace, name: name, manifest_source: options[:file])
 when 'delete'
   handler_info = Walheim::HandlerRegistry.get(kind)
@@ -329,7 +390,7 @@ when 'delete'
   end
 
   # Execute operation
-  handler = handler_info[:handler].new(namespaces_dir: namespaces_dir)
+  handler = handler_info[:handler].new(data_dir: data_dir)
   handler.delete(namespace: namespace, name: name)
 when 'create'
   # Only namespaces support create
@@ -393,7 +454,7 @@ when 'start', 'pause', 'stop'
   end
 
   # Execute operation
-  handler = handler_info[:handler].new(namespaces_dir: namespaces_dir)
+  handler = handler_info[:handler].new(data_dir: data_dir)
   handler.send(command.to_sym, namespace: namespace, name: name)
 when 'logs'
   # Resource-specific operation
@@ -424,7 +485,7 @@ when 'logs'
   log_options[:timestamps] = true if options[:timestamps]
 
   # Execute operation
-  handler = handler_info[:handler].new(namespaces_dir: namespaces_dir)
+  handler = handler_info[:handler].new(data_dir: data_dir)
   handler.logs(namespace: namespace, name: name, **log_options)
 when 'import'
   # Only apps support import
@@ -454,8 +515,187 @@ when 'import'
 
   # Execute import
   handler_info = Walheim::HandlerRegistry.get('apps')
-  handler = handler_info[:handler].new(namespaces_dir: namespaces_dir)
+  handler = handler_info[:handler].new(data_dir: data_dir)
   handler.import(namespace: namespace, name: name, compose_manifest: compose_manifest)
+when 'context'
+  # Context management commands
+  subcommand = kind # The kind position is the subcommand for context
+  context_name = name # The name position is the context name
+
+  case subcommand
+  when 'new'
+    # whctl context new {name} --data-dir {path}
+    unless context_name
+      warn 'Error: context name is required'
+      warn 'Usage: whctl context new {name} --data-dir {path}'
+      exit 1
+    end
+
+    unless options[:data_dir]
+      warn 'Error: --data-dir flag is required'
+      warn 'Usage: whctl context new {name} --data-dir {path}'
+      exit 1
+    end
+
+    # Validate data_dir exists or can be created
+    expanded_data_dir = File.expand_path(options[:data_dir])
+    unless Dir.exist?(expanded_data_dir)
+      warn "Error: data directory '#{expanded_data_dir}' does not exist"
+      warn ''
+      warn 'Please create the directory first or provide a valid path'
+      exit 1
+    end
+
+    # Check for namespaces subdirectory
+    namespaces_path = File.join(expanded_data_dir, 'namespaces')
+    unless Dir.exist?(namespaces_path)
+      warn "Warning: data directory does not contain 'namespaces' subdirectory"
+      warn "Expected path: #{namespaces_path}"
+      warn ''
+      warn 'This directory should contain your homelab configuration.'
+      warn 'Creating namespaces directory...'
+      Dir.mkdir(namespaces_path)
+    end
+
+    # Load or create config
+    config = Walheim::Config.new(config_path: options[:whconfig])
+
+    begin
+      config.add_context(context_name, expanded_data_dir, activate: true)
+      config.save_config
+      puts "Created context '#{context_name}'"
+      puts "  Data directory: #{expanded_data_dir}"
+      puts "  Status: Active (automatically activated)"
+    rescue Walheim::Config::ValidationError => e
+      warn "Error: #{e.message}"
+      exit 1
+    rescue Walheim::Config::ConfigError => e
+      warn "Error: #{e.message}"
+      exit 1
+    end
+
+  when 'list'
+    # whctl context list
+    config = Walheim::Config.new(config_path: options[:whconfig])
+
+    unless Walheim::Config.exists?(config_path: options[:whconfig])
+      warn 'No Walheim configuration found.'
+      warn ''
+      warn 'Create your first context:'
+      warn '  whctl context new <name> --data-dir <path>'
+      exit 1
+    end
+
+    contexts = config.list_contexts
+    if contexts.empty?
+      puts 'No contexts configured.'
+      exit 0
+    end
+
+    require 'terminal-table'
+
+    rows = contexts.map do |ctx|
+      active_marker = ctx['active'] ? '*' : ''
+      [active_marker, ctx['name'], ctx['dataDir']]
+    end
+
+    table = Terminal::Table.new do |t|
+      t.headings = ['CURRENT', 'NAME', 'DATA DIRECTORY']
+      t.rows = rows
+      t.style = {
+        border_x: '', border_y: '', border_i: '',
+        padding_left: 0, padding_right: 3,
+        border_top: false, border_bottom: false,
+        all_separators: false
+      }
+    end
+
+    puts table
+
+  when 'use'
+    # whctl context use {name}
+    unless context_name
+      warn 'Error: context name is required'
+      warn 'Usage: whctl context use {name}'
+      exit 1
+    end
+
+    config = Walheim::Config.new(config_path: options[:whconfig])
+
+    begin
+      config.use_context(context_name)
+      config.save_config
+      puts "Switched to context '#{context_name}'"
+    rescue Walheim::Config::ConfigError => e
+      warn "Error: #{e.message}"
+      exit 1
+    end
+
+  when 'current'
+    # whctl context current
+    config = Walheim::Config.new(config_path: options[:whconfig])
+
+    unless Walheim::Config.exists?(config_path: options[:whconfig])
+      warn 'No Walheim configuration found.'
+      warn ''
+      warn 'Create your first context:'
+      warn '  whctl context new <name> --data-dir <path>'
+      exit 1
+    end
+
+    if config.current_context
+      puts "Current context: #{config.current_context}"
+      puts "Data directory: #{config.data_dir}"
+    else
+      puts 'No active context selected.'
+      puts ''
+      puts 'Available contexts:'
+      config.list_contexts.each do |ctx|
+        puts "  - #{ctx['name']}"
+      end
+      puts ''
+      puts 'Select a context:'
+      puts '  whctl context use <context-name>'
+    end
+
+  when 'delete'
+    # whctl context delete {name}
+    unless context_name
+      warn 'Error: context name is required'
+      warn 'Usage: whctl context delete {name}'
+      exit 1
+    end
+
+    config = Walheim::Config.new(config_path: options[:whconfig])
+
+    begin
+      config.delete_context(context_name)
+      config.save_config
+      puts "Deleted context '#{context_name}'"
+
+      # Show warning if this was the active context
+      unless config.current_context
+        puts ''
+        puts 'Note: This was your active context.'
+        puts 'Select a new context with:'
+        puts '  whctl context use <context-name>'
+      end
+    rescue Walheim::Config::ConfigError => e
+      warn "Error: #{e.message}"
+      exit 1
+    end
+
+  else
+    warn "Error: unknown context subcommand '#{subcommand}'"
+    warn ''
+    warn 'Available context commands:'
+    warn '  whctl context new {name} --data-dir {path}'
+    warn '  whctl context list'
+    warn '  whctl context use {name}'
+    warn '  whctl context current'
+    warn '  whctl context delete {name}'
+    exit 1
+  end
 else
   warn "Error: unknown command '#{command}'"
   warn 'Usage: whctl <command> [arguments]'

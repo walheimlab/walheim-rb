@@ -1,0 +1,49 @@
+# Walheim Configuration File
+# Default location: ~/.walheim/config
+#
+# This file manages multiple homelab environments (contexts) similar to kubectl.
+# Override location with --whconfig flag or $WHCONFIG environment variable.
+
+apiVersion: walheim.io/v1
+kind: Config
+
+# The currently active context (must match one of the context names below)
+currentContext: production
+
+# List of available contexts
+contexts:
+  # Production homelab environment
+  - name: production
+    dataDir: /home/user/homelab-production
+
+  # Staging environment for testing changes
+  - name: staging
+    dataDir: /home/user/homelab-staging
+
+  # Local development environment
+  - name: local
+    dataDir: ~/walheim-local
+
+# Usage Examples:
+#
+# Switch to a different context:
+#   whctl context use staging
+#
+# List all contexts:
+#   whctl context list
+#
+# Show current context:
+#   whctl context current
+#
+# Add a new context:
+#   whctl context new demo --data-dir ~/homelab-demo
+#
+# Delete a context:
+#   whctl context delete demo
+#
+# Override context for a single command:
+#   whctl --context staging get namespaces
+#
+# Use a different config file:
+#   whctl --whconfig /path/to/config get namespaces
+#   WHCONFIG=/path/to/config whctl get namespaces
