@@ -32,7 +32,7 @@ module Walheim
 
     # Summary fields for get output - can be overridden by subclasses
     def self.summary_fields
-      {}  # Default: no summary fields
+      {} # Default: no summary fields
     end
 
     # Operation metadata - defines how operations appear in help

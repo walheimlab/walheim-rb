@@ -17,13 +17,13 @@ module Walheim
           type: :string,
           aliases: [:n],
           desc: 'Target namespace',
-          required: false  # Validated at runtime
+          required: false # Validated at runtime
         },
         all: {
           type: :boolean,
           aliases: [:A],
           desc: 'All namespaces',
-          banner: ''  # No value needed for boolean
+          banner: '' # No value needed for boolean
         }
       }
 
@@ -38,10 +38,10 @@ module Walheim
 
     def apply(namespace:, name:, manifest_source: nil)
       manifest_data = if manifest_source
-        File.read(manifest_source)
-      else
-        read_manifest_from_db(namespace, name)
-      end
+                        File.read(manifest_source)
+                      else
+                        read_manifest_from_db(namespace, name)
+                      end
 
       if resource_exists?(namespace, name)
         update(namespace: namespace, name: name, manifest: manifest_data)
@@ -119,7 +119,7 @@ module Walheim
 
       manifest_path = File.join(resource_dir(namespace, name), manifest_filename)
       manifest_content = File.read(manifest_path)
-      manifest_data = YAML.load(manifest_content)
+      manifest_data = YAML.safe_load(manifest_content)
 
       # Compute summary fields
       summary = {}
@@ -182,7 +182,10 @@ module Walheim
 
       # Find all resource directories
       resource_names = Dir.entries(resources_path)
-                          .select { |entry| File.directory?(File.join(resources_path, entry)) && !entry.start_with?('.') }
+                          .select do |entry|
+                            File.directory?(File.join(resources_path,
+                                                      entry)) && !entry.start_with?('.')
+      end
                           .sort
 
       # Return array of manifest hashes
@@ -197,7 +200,10 @@ module Walheim
 
       # Find all namespaces
       namespace_names = Dir.entries(namespaces_dir)
-                           .select { |entry| File.directory?(File.join(namespaces_dir, entry)) && !entry.start_with?('.') }
+                           .select do |entry|
+                             File.directory?(File.join(namespaces_dir,
+                                                       entry)) && !entry.start_with?('.')
+      end
                            .select { |entry| File.exist?(File.join(namespaces_dir, entry, '.namespace.yaml')) }
                            .sort
 
@@ -208,7 +214,10 @@ module Walheim
         next unless Dir.exist?(resources_path)
 
         resource_names = Dir.entries(resources_path)
-                            .select { |entry| File.directory?(File.join(resources_path, entry)) && !entry.start_with?('.') }
+                            .select do |entry|
+                              File.directory?(File.join(resources_path,
+                                                        entry)) && !entry.start_with?('.')
+        end
                             .sort
 
         resource_names.each do |resource_name|

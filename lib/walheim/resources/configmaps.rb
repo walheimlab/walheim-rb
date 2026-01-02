@@ -9,7 +9,7 @@ module Resources
       {
         plural: 'configmaps',
         singular: 'configmap',
-        aliases: ['cm']  # Abbreviation
+        aliases: ['cm'] # Abbreviation
       }
     end
 

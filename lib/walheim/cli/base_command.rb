@@ -28,15 +28,11 @@ module Walheim
       handler = handler_info[:handler].new(data_dir: data_dir)
 
       # 5. Validate namespace requirements
-      if handler.is_a?(Walheim::NamespacedResource)
-        validate_namespace_options!(operation, kind, name, options)
-      end
+      validate_namespace_options!(operation, kind, name, options) if handler.is_a?(Walheim::NamespacedResource)
 
       # 6. Dispatch to handler
       dispatch_to_handler(handler, operation, name, options, handler_info)
     end
-
-    private
 
     def self.resolve_data_dir(options, parent_options)
       # Merge options
@@ -74,14 +70,15 @@ module Walheim
       end
     end
 
-    def self.validate_namespace_options!(operation, kind, name, options)
+    def self.validate_namespace_options!(operation, kind, _name, options)
       # Operations that require namespace or --all
-      requires_namespace = [:get, :apply, :delete, :start, :pause, :stop, :logs, :import]
+      requires_namespace = %i[get apply delete start pause stop logs import]
       return unless requires_namespace.include?(operation)
 
       # get can use --all
       if operation == :get
         return if options[:all] || options[:namespace]
+
         warn 'Error: either -n {namespace} or --all/-A flag is required'
         warn "Usage: whctl get #{kind} -n {namespace}"
         warn "Usage: whctl get #{kind} --all"
@@ -89,11 +86,11 @@ module Walheim
       end
 
       # Other operations require namespace
-      unless options[:namespace]
-        warn 'Error: -n {namespace} is required'
-        warn "Usage: whctl #{operation} #{kind} {name} -n {namespace}"
-        exit 1
-      end
+      return if options[:namespace]
+
+      warn 'Error: -n {namespace} is required'
+      warn "Usage: whctl #{operation} #{kind} {name} -n {namespace}"
+      exit 1
     end
 
     def self.dispatch_to_handler(handler, operation, name, options, handler_info)
@@ -131,15 +128,15 @@ module Walheim
         Walheim::Helpers.print_cluster_resources_table(result, handler_info[:name])
       else
         result = if options[:all]
-          handler.get(namespace: nil, name: nil)
-        else
-          handler.get(namespace: options[:namespace], name: name)
-        end
+                   handler.get(namespace: nil, name: nil)
+                 else
+                   handler.get(namespace: options[:namespace], name: name)
+                 end
         Walheim::Helpers.print_resources_table(result, options[:all], handler_info[:name])
       end
     end
 
-    def self.dispatch_apply(handler, name, options, handler_info)
+    def self.dispatch_apply(handler, name, options, _handler_info)
       # Extract from manifest if -f provided
       if options[:file]
         manifest_data = Walheim::Helpers.read_yaml_input(options[:file])
@@ -163,13 +160,11 @@ module Walheim
           end
           handler.apply(name: name, manifest_source: options[:file])
         end
-      else
+      elsif handler.is_a?(Walheim::NamespacedResource)
         # Apply from existing manifest in data dir
-        if handler.is_a?(Walheim::NamespacedResource)
-          handler.apply(namespace: options[:namespace], name: name)
-        else
-          handler.apply(name: name)
-        end
+        handler.apply(namespace: options[:namespace], name: name)
+      else
+        handler.apply(name: name)
       end
     end
   end

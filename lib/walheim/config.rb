@@ -46,7 +46,7 @@ module Walheim
       validate_current_context!
     rescue Psych::SyntaxError => e
       raise ConfigError, "Invalid YAML in config file: #{e.message}"
-    rescue => e
+    rescue StandardError => e
       raise ConfigError, "Failed to load config: #{e.message}"
     end
 
@@ -74,7 +74,7 @@ module Walheim
       temp_file = "#{@config_path}.tmp.#{Process.pid}"
       File.write(temp_file, YAML.dump(data))
       File.rename(temp_file, @config_path)
-    rescue => e
+    rescue StandardError => e
       File.delete(temp_file) if temp_file && File.exist?(temp_file)
       raise ConfigError, "Failed to save config: #{e.message}"
     end
@@ -134,6 +134,7 @@ module Walheim
     # @raise [ConfigError] if context not found
     def use_context(name)
       raise ConfigError, "Context '#{name}' not found" unless find_context(name)
+
       @current_context = name
     end
 
@@ -160,6 +161,7 @@ module Walheim
     def resolve_config_path(config_path)
       return expand_path(config_path) if config_path
       return expand_path(ENV['WHCONFIG']) if ENV['WHCONFIG']
+
       DEFAULT_CONFIG_PATH
     end
 

@@ -72,7 +72,7 @@ module Walheim
           config.save_config
           puts "Created context '#{context_name}'"
           puts "  Data directory: #{expanded_data_dir}"
-          puts "  Status: Active (automatically activated)"
+          puts '  Status: Active (automatically activated)'
         rescue Walheim::Config::ValidationError => e
           warn "Error: #{e.message}"
           exit 1

@@ -28,7 +28,7 @@ module Resources
         get: {
           description: 'List all namespaces',
           usage: ['get namespaces'],
-          options: {}  # No namespace flag for cluster resource
+          options: {} # No namespace flag for cluster resource
         },
         create: {
           description: 'Create a new namespace',

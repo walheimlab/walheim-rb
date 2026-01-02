@@ -329,7 +329,7 @@ module Resources
 
     def inject_walheim_labels(compose, namespace, name)
       # Process each service and inject Walheim metadata labels
-      compose['services']&.each do |service_name, service_config|
+      compose['services']&.each_value do |service_config|
         service_config['labels'] ||= []
 
         # Define Walheim metadata labels (stable labels only to avoid unnecessary restarts)
@@ -342,7 +342,9 @@ module Resources
         # Inject labels (handle both array and hash formats)
         if service_config['labels'].is_a?(Array)
           # Remove any existing walheim.* labels first to avoid duplicates
-          service_config['labels'].reject! { |label| label.to_s.start_with?('walheim.managed=', 'walheim.namespace=', 'walheim.app=') }
+          service_config['labels'].reject! do |label|
+            label.to_s.start_with?('walheim.managed=', 'walheim.namespace=', 'walheim.app=')
+          end
           # Add new labels
           service_config['labels'].concat(walheim_labels)
         else
@@ -539,7 +541,7 @@ module Resources
     end
 
     def validate_manifest(manifest, namespace, name)
-      manifest_hash = YAML.load(manifest)
+      manifest_hash = YAML.safe_load(manifest)
       validate_k8s_manifest(manifest_hash, namespace, name) if manifest_hash['kind'] == 'App'
     end
 

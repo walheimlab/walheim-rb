@@ -22,7 +22,7 @@ module Resources
 
     def self.summary_fields
       {
-        type: lambda { |manifest| manifest['type'] || 'Opaque' },
+        type: ->(manifest) { manifest['type'] || 'Opaque' },
         keys: lambda { |manifest|
           data_keys = (manifest['data'] || {}).keys
           string_keys = (manifest['stringData'] || {}).keys

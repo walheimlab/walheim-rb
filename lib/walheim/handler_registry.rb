@@ -57,9 +57,7 @@ module Walheim
         handlers.values.uniq { |h| h[:handler] }.each do |handler_info|
           handler_class = handler_info[:handler]
           # Get operations from operation_info metadata
-          if handler_class.respond_to?(:operation_info)
-            handler_class.operation_info.keys.each { |op| ops[op] = true }
-          end
+          handler_class.operation_info.each_key { |op| ops[op] = true } if handler_class.respond_to?(:operation_info)
         end
         ops.keys.sort
       end
@@ -75,6 +73,7 @@ module Walheim
       def cluster_resource?(kind)
         handler_info = get(kind)
         return false unless handler_info
+
         handler_info[:handler] < Walheim::ClusterResource
       end
     end

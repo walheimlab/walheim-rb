@@ -69,10 +69,10 @@ module Walheim
     # Apply operation - create or update
     def apply(name:, manifest_source: nil)
       manifest_data = if manifest_source
-        File.read(manifest_source)
-      else
-        read_manifest_from_db(name)
-      end
+                        File.read(manifest_source)
+                      else
+                        read_manifest_from_db(name)
+                      end
 
       if resource_exists?(name)
         update(name: name, manifest: manifest_data)
@@ -91,7 +91,7 @@ module Walheim
 
       manifest_path = File.join(resource_dir(name), manifest_filename)
       manifest_content = File.read(manifest_path)
-      manifest_data = YAML.load(manifest_content)
+      manifest_data = YAML.safe_load(manifest_content)
 
       # Compute summary fields
       summary = {}

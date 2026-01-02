@@ -55,6 +55,7 @@ module Walheim
       # Print commands
       list.each do |command|
         next if command[0] == 'help'
+
         shell.say "  #{command[0].ljust(30)} #{command[1]}"
       end
     end
