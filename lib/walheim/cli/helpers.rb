@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'terminal-table'
-require 'yaml'
+require "terminal-table"
+require "yaml"
 
 module Walheim
   module Helpers
@@ -24,29 +24,29 @@ module Walheim
       # Build header row
       headers = if all_namespaces
                   %w[NAMESPACE NAME] + summary_fields.map(&:to_s).map(&:upcase)
-                else
-                  ['NAME'] + summary_fields.map(&:to_s).map(&:upcase)
-                end
+      else
+                  [ "NAME" ] + summary_fields.map(&:to_s).map(&:upcase)
+      end
 
       # Build data rows
       rows = result.map do |resource|
         row = if all_namespaces
-                [resource[:namespace], resource[:name]]
-              else
-                [resource[:name]]
-              end
+                [ resource[:namespace], resource[:name] ]
+        else
+                [ resource[:name] ]
+        end
 
         # Add summary field values
-        summary_values = summary_fields.map { |field| resource[:summary][field] || 'N/A' }
+        summary_values = summary_fields.map { |field| resource[:summary][field] || "N/A" }
         row + summary_values
       end
 
-      all_rows = [headers] + rows
+      all_rows = [ headers ] + rows
 
       table = Terminal::Table.new do |t|
         t.rows = all_rows
         t.style = {
-          border_x: '', border_y: '', border_i: '',
+          border_x: "", border_y: "", border_i: "",
           padding_left: 0, padding_right: 3,
           border_top: false, border_bottom: false,
           all_separators: false
@@ -73,23 +73,23 @@ module Walheim
       summary_fields = result.first[:summary].keys
 
       # Build header row (no NAMESPACE column for cluster resources)
-      headers = ['NAME'] + summary_fields.map(&:to_s).map(&:upcase)
+      headers = [ "NAME" ] + summary_fields.map(&:to_s).map(&:upcase)
 
       # Build data rows
       rows = result.map do |resource|
-        row = [resource[:name]]
+        row = [ resource[:name] ]
 
         # Add summary field values
-        summary_values = summary_fields.map { |field| resource[:summary][field] || 'N/A' }
+        summary_values = summary_fields.map { |field| resource[:summary][field] || "N/A" }
         row + summary_values
       end
 
-      all_rows = [headers] + rows
+      all_rows = [ headers ] + rows
 
       table = Terminal::Table.new do |t|
         t.rows = all_rows
         t.style = {
-          border_x: '', border_y: '', border_i: '',
+          border_x: "", border_y: "", border_i: "",
           padding_left: 0, padding_right: 3,
           border_top: false, border_bottom: false,
           all_separators: false
@@ -101,7 +101,7 @@ module Walheim
 
     # Read YAML from file or stdin
     def self.read_yaml_input(file_path)
-      if file_path == '-'
+      if file_path == "-"
         # Read from stdin
         YAML.safe_load($stdin.read)
       else

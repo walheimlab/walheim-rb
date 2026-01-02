@@ -5,8 +5,8 @@ require_relative 'lib/walheim/version'
 Gem::Specification.new do |spec|
   spec.name = 'walheim'
   spec.version = Walheim::VERSION
-  spec.authors = ['Akhyar Amarullah']
-  spec.email = ['akhyar@chickenzord.com']
+  spec.authors = [ 'Akhyar Amarullah' ]
+  spec.email = [ 'akhyar@chickenzord.com' ]
 
   spec.summary = 'Docker-based homelab configuration management with kubectl-like CLI'
   spec.description = 'Walheim is a Docker-based homelab configuration management system with a kubectl-like CLI called whctl. Manage your homelab infrastructure with familiar Kubernetes-style commands.'
@@ -21,8 +21,8 @@ Gem::Specification.new do |spec|
   # Specify which files should be added to the gem when it is released.
   spec.files = Dir.glob('{bin,lib}/**/*') + %w[README.md]
   spec.bindir = 'bin'
-  spec.executables = ['whctl']
-  spec.require_paths = ['lib']
+  spec.executables = [ 'whctl' ]
+  spec.require_paths = [ 'lib' ]
 
   # Dependencies
   spec.add_dependency 'terminal-table', '~> 3.0'

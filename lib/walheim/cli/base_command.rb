@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'helpers'
+require_relative "helpers"
 
 module Walheim
   module BaseCommand
@@ -9,8 +9,8 @@ module Walheim
       handler_info = Walheim::HandlerRegistry.get(kind)
       unless handler_info
         warn "Error: unknown kind '#{kind}'"
-        warn ''
-        warn 'Available kinds:'
+        warn ""
+        warn "Available kinds:"
         Walheim::HandlerRegistry.all_visible.each { |h| warn "  #{h[:name]}" }
         exit 1
       end
@@ -47,24 +47,24 @@ module Walheim
         if context_name
           config.data_dir(context_name)
         elsif all_options[:data_dir]
-          warn 'Warning: --data-dir is deprecated. Use contexts.'
+          warn "Warning: --data-dir is deprecated. Use contexts."
           all_options[:data_dir]
         else
-          warn 'Error: No Walheim configuration found.'
-          warn ''
-          warn 'Create your first context:'
-          warn '  whctl context new <name> --data-dir <path>'
+          warn "Error: No Walheim configuration found."
+          warn ""
+          warn "Create your first context:"
+          warn "  whctl context new <name> --data-dir <path>"
           exit 1
         end
       rescue Walheim::Config::ConfigError, Walheim::Config::ValidationError
         if all_options[:data_dir]
-          warn 'Warning: --data-dir is deprecated.'
+          warn "Warning: --data-dir is deprecated."
           all_options[:data_dir]
         else
-          warn 'Error: No Walheim configuration found.'
-          warn ''
-          warn 'Create your first context:'
-          warn '  whctl context new <name> --data-dir <path>'
+          warn "Error: No Walheim configuration found."
+          warn ""
+          warn "Create your first context:"
+          warn "  whctl context new <name> --data-dir <path>"
           exit 1
         end
       end
@@ -79,7 +79,7 @@ module Walheim
       if operation == :get
         return if options[:all] || options[:namespace]
 
-        warn 'Error: either -n {namespace} or --all/-A flag is required'
+        warn "Error: either -n {namespace} or --all/-A flag is required"
         warn "Usage: whctl get #{kind} -n {namespace}"
         warn "Usage: whctl get #{kind} --all"
         exit 1
@@ -88,7 +88,7 @@ module Walheim
       # Other operations require namespace
       return if options[:namespace]
 
-      warn 'Error: -n {namespace} is required'
+      warn "Error: -n {namespace} is required"
       warn "Usage: whctl #{operation} #{kind} {name} -n {namespace}"
       exit 1
     end
@@ -129,9 +129,9 @@ module Walheim
       else
         result = if options[:all]
                    handler.get(namespace: nil, name: nil)
-                 else
+        else
                    handler.get(namespace: options[:namespace], name: name)
-                 end
+        end
         Walheim::Helpers.print_resources_table(result, options[:all], handler_info[:name])
       end
     end
@@ -142,20 +142,20 @@ module Walheim
         manifest_data = Walheim::Helpers.read_yaml_input(options[:file])
 
         if handler.is_a?(Walheim::NamespacedResource)
-          namespace = manifest_data['metadata']['namespace']
-          name = manifest_data['metadata']['name']
+          namespace = manifest_data["metadata"]["namespace"]
+          name = manifest_data["metadata"]["name"]
 
           unless namespace && name
-            warn 'Error: Manifest must contain metadata.namespace and metadata.name'
+            warn "Error: Manifest must contain metadata.namespace and metadata.name"
             exit 1
           end
 
           handler.apply(namespace: namespace, name: name, manifest_source: options[:file])
         else
           # Cluster resource
-          name = manifest_data['metadata']['name']
+          name = manifest_data["metadata"]["name"]
           unless name
-            warn 'Error: Manifest must contain metadata.name'
+            warn "Error: Manifest must contain metadata.name"
             exit 1
           end
           handler.apply(name: name, manifest_source: options[:file])

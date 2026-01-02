@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require_relative '../namespaced_resource'
-require_relative '../handler_registry'
+require_relative "../namespaced_resource"
+require_relative "../handler_registry"
 
 module Resources
   class Secrets < Walheim::NamespacedResource
     def self.kind_info
       {
-        plural: 'secrets',
-        singular: 'secret'
+        plural: "secrets",
+        singular: "secret"
       }
     end
 
@@ -22,12 +22,12 @@ module Resources
 
     def self.summary_fields
       {
-        type: ->(manifest) { manifest['type'] || 'Opaque' },
+        type: ->(manifest) { manifest["type"] || "Opaque" },
         keys: lambda { |manifest|
-          data_keys = (manifest['data'] || {}).keys
-          string_keys = (manifest['stringData'] || {}).keys
+          data_keys = (manifest["data"] || {}).keys
+          string_keys = (manifest["stringData"] || {}).keys
           all_keys = (data_keys + string_keys).uniq
-          all_keys.join(', ')
+          all_keys.join(", ")
         }
       }
     end
@@ -35,7 +35,7 @@ module Resources
     private
 
     def manifest_filename
-      'secret.yaml'
+      "secret.yaml"
     end
   end
 end

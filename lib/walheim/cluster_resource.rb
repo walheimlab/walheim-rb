@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'resource'
+require_relative "resource"
 
 module Walheim
   # ClusterResource represents resources that are cluster-scoped (not namespaced)
@@ -70,9 +70,9 @@ module Walheim
     def apply(name:, manifest_source: nil)
       manifest_data = if manifest_source
                         File.read(manifest_source)
-                      else
+      else
                         read_manifest_from_db(name)
-                      end
+      end
 
       if resource_exists?(name)
         update(name: name, manifest: manifest_data)
@@ -123,7 +123,7 @@ module Walheim
     def find_resource_names
       base_dir = File.join(@data_dir, self.class.kind_info[:plural])
       Dir.entries(base_dir)
-         .select { |entry| File.directory?(File.join(base_dir, entry)) && !entry.start_with?('.') }
+         .select { |entry| File.directory?(File.join(base_dir, entry)) && !entry.start_with?(".") }
          .select { |entry| File.exist?(File.join(base_dir, entry, manifest_filename)) }
          .sort
     end

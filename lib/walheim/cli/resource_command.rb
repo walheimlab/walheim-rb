@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
+require_relative "base_command"
 
 module Walheim
   module ResourceCommand
@@ -10,7 +10,7 @@ module Walheim
       return if handlers.empty?
 
       # Build command description
-      descriptions = handlers.map { |h| h[:name] }.join(', ')
+      descriptions = handlers.map { |h| h[:name] }.join(", ")
       desc_text = "#{operation.to_s.capitalize} resources (#{descriptions})"
 
       # Define Thor command
