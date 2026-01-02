@@ -1,0 +1,89 @@
+name: Publish to RubyGems
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Extract version from tag
+        id: tag_version
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Tag version: $TAG_VERSION"
+
+      - name: Extract version from version.rb
+        id: gem_version
+        run: |
+          GEM_VERSION=$(ruby -r ./lib/walheim/version.rb -e 'puts Walheim::VERSION')
+          echo "version=$GEM_VERSION" >> $GITHUB_OUTPUT
+          echo "💎 Gem version: $GEM_VERSION"
+
+      - name: Validate version match
+        run: |
+          if [ "${{ steps.tag_version.outputs.version }}" != "${{ steps.gem_version.outputs.version }}" ]; then
+            echo "❌ Version mismatch!"
+            echo "Git tag version: ${{ steps.tag_version.outputs.version }}"
+            echo "Gem version: ${{ steps.gem_version.outputs.version }}"
+            echo ""
+            echo "Please ensure the git tag matches the version in lib/walheim/version.rb"
+            exit 1
+          fi
+          echo "✅ Version validation passed: ${{ steps.gem_version.outputs.version }}"
+
+      - name: Validate semantic versioning format
+        run: |
+          VERSION="${{ steps.gem_version.outputs.version }}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'; then
+            echo "❌ Version does not follow semantic versioning format: $VERSION"
+            echo "Expected format: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]"
+            echo "Examples: 0.1.0, 1.0.0, 1.2.3-beta.1, 2.0.0+build.123"
+            exit 1
+          fi
+          echo "✅ Semantic versioning validation passed: $VERSION"
+
+      - name: Build gem
+        run: |
+          gem build walheim.gemspec
+          echo "✅ Gem built successfully"
+
+      - name: Publish to RubyGems
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: |
+          mkdir -p ~/.gem
+          cat > ~/.gem/credentials << EOF
+          ---
+          :rubygems_api_key: ${GEM_HOST_API_KEY}
+          EOF
+          chmod 0600 ~/.gem/credentials
+
+          gem push walheim-*.gem
+
+          rm ~/.gem/credentials
+          echo "✅ Gem published to RubyGems successfully!"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: walheim-*.gem
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
