@@ -1,0 +1,3 @@
+[submodule "docs/walheimlab.github.io"]
+	path = docs/walheimlab.github.io
+	url = git@github.com:walheimlab/walheimlab.github.io.git
