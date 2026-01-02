@@ -10,10 +10,10 @@ module Walheim
   # - NamespacedResource: for namespace-scoped resources (apps, secrets, configmaps)
   # - ClusterResource: for cluster-scoped resources (namespaces)
   class Resource
-    attr_reader :namespaces_dir
+    attr_reader :data_dir
 
-    def initialize(namespaces_dir: 'namespaces')
-      @namespaces_dir = namespaces_dir
+    def initialize(data_dir: Dir.pwd)
+      @data_dir = data_dir
     end
 
     # Metadata - must be overridden by subclasses

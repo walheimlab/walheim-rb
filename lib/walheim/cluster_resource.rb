@@ -107,7 +107,7 @@ module Walheim
     end
 
     def list_all
-      base_dir = self.class.kind_info[:plural]
+      base_dir = File.join(@data_dir, self.class.kind_info[:plural])
       return [] unless Dir.exist?(base_dir)
 
       # Find all resource directories
@@ -121,18 +121,18 @@ module Walheim
 
     # Override in subclasses to customize how resources are discovered
     def find_resource_names
-      base_dir = self.class.kind_info[:plural]
+      base_dir = File.join(@data_dir, self.class.kind_info[:plural])
       Dir.entries(base_dir)
          .select { |entry| File.directory?(File.join(base_dir, entry)) && !entry.start_with?('.') }
          .select { |entry| File.exist?(File.join(base_dir, entry, manifest_filename)) }
          .sort
     end
 
-    # Path to resource directory (cluster resources live at top level by kind)
-    # For namespaces: namespaces/{name}/
-    # For appsets: appsets/{name}/
+    # Path to resource directory (cluster resources: {data_dir}/{kind_plural}/{name}/)
+    # For namespaces: {data_dir}/namespaces/{name}/
+    # For appsets: {data_dir}/appsets/{name}/
     def resource_dir(name)
-      File.join(self.class.kind_info[:plural], name)
+      File.join(@data_dir, self.class.kind_info[:plural], name)
     end
 
     def resource_exists?(name)
