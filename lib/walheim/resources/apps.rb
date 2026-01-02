@@ -6,8 +6,10 @@ require_relative '../handler_registry'
 
 module Resources
   class Apps < Walheim::NamespacedResource
-    def initialize(namespaces_dir: 'namespaces')
-      super
+    def initialize(data_dir: Dir.pwd)
+      super(data_dir: data_dir)
+      # Sync needs the full path to namespaces directory
+      namespaces_dir = File.join(data_dir, 'namespaces')
       @syncer = Walheim::Sync.new(namespaces_dir: namespaces_dir)
     end
 
@@ -44,23 +46,32 @@ module Resources
       # Start with base operations
       ops = super
 
+      namespace_opt = { type: :string, aliases: [:n], desc: 'Target namespace', required: true }
+
       # Add apps-specific operations
       ops.merge({
                   import: {
                     description: 'Import docker-compose as Walheim App',
-                    usage: ['import app {name} -n {namespace} -f {docker-compose.yml}']
+                    usage: ['import app {name} -n {namespace} -f {docker-compose.yml}'],
+                    options: {
+                      namespace: namespace_opt,
+                      file: { type: :string, aliases: [:f], desc: 'docker-compose.yml path', required: true }
+                    }
                   },
                   start: {
                     description: 'Compile, sync, and start app on host',
-                    usage: ['start app {name} -n {namespace}']
+                    usage: ['start app {name} -n {namespace}'],
+                    options: { namespace: namespace_opt }
                   },
                   pause: {
                     description: 'Stop app containers (keep files)',
-                    usage: ['pause app {name} -n {namespace}']
+                    usage: ['pause app {name} -n {namespace}'],
+                    options: { namespace: namespace_opt }
                   },
                   stop: {
                     description: 'Stop app and remove files from host',
-                    usage: ['stop app {name} -n {namespace}']
+                    usage: ['stop app {name} -n {namespace}'],
+                    options: { namespace: namespace_opt }
                   },
                   logs: {
                     description: 'View logs from remote containers',
@@ -69,7 +80,13 @@ module Resources
                       'logs app {name} -n {namespace} --follow',
                       'logs app {name} -n {namespace} --tail 100',
                       'logs app {name} -n {namespace} --timestamps'
-                    ]
+                    ],
+                    options: {
+                      namespace: namespace_opt,
+                      follow: { type: :boolean, desc: 'Follow log output' },
+                      tail: { type: :numeric, desc: 'Number of lines from end' },
+                      timestamps: { type: :boolean, desc: 'Show timestamps' }
+                    }
                   }
                 })
     end

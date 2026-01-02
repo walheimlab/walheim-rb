@@ -7,6 +7,33 @@ module Walheim
   # Examples: Apps, Secrets, ConfigMaps
   # These resources live under namespaces/{namespace}/{kind}/{name}/
   class NamespacedResource < Resource
+    # Override operation_info to add namespace flags
+    def self.operation_info
+      ops = super
+
+      # Add namespace flags to all operations
+      namespace_options = {
+        namespace: {
+          type: :string,
+          aliases: [:n],
+          desc: 'Target namespace',
+          required: false  # Validated at runtime
+        },
+        all: {
+          type: :boolean,
+          aliases: [:A],
+          desc: 'All namespaces',
+          banner: ''  # No value needed for boolean
+        }
+      }
+
+      ops[:get][:options].merge!(namespace_options)
+      ops[:apply][:options].merge!(namespace: namespace_options[:namespace])
+      ops[:delete][:options].merge!(namespace: namespace_options[:namespace])
+
+      ops
+    end
+
     # CRUD operations for namespace-scoped resources
 
     def apply(namespace:, name:, manifest_source: nil)

@@ -45,15 +45,20 @@ module Walheim
             "get #{kind_info[:plural]} -n {namespace}",
             "get #{kind_info[:plural]} --all/-A",
             "get #{kind_info[:singular]} {name} -n {namespace}"
-          ]
+          ],
+          options: {}  # Subclasses will override
         },
         apply: {
           description: 'Create or update a resource',
-          usage: ["apply #{kind_info[:singular]} {name} -n {namespace}"]
+          usage: ["apply #{kind_info[:singular]} {name} -n {namespace}"],
+          options: {
+            file: { type: :string, aliases: [:f], desc: 'Manifest file (use - for stdin)' }
+          }
         },
         delete: {
           description: 'Delete a resource',
-          usage: ["delete #{kind_info[:singular]} {name} -n {namespace}"]
+          usage: ["delete #{kind_info[:singular]} {name} -n {namespace}"],
+          options: {}  # Subclasses will override
         }
       }
     end
