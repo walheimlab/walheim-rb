@@ -294,6 +294,12 @@ whctl --help
 ./bin/whctl get namespaces
 ```
 
+## For Maintainers
+
+If you're a maintainer releasing new versions:
+
+- **[Release Process](docs/maintainers/release.md)** - Step-by-step guide for publishing to RubyGems
+
 ## Contributing
 
 Contributions are welcome! Please:
