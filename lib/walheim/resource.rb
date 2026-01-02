@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'yaml'
-require 'fileutils'
-require 'terminal-table'
+require "yaml"
+require "fileutils"
+require "terminal-table"
 
 module Walheim
   # Base Resource class containing common functionality for all resource types
@@ -18,7 +18,7 @@ module Walheim
 
     # Metadata - must be overridden by subclasses
     def self.kind_info
-      raise NotImplementedError, 'Subclass must implement kind_info'
+      raise NotImplementedError, "Subclass must implement kind_info"
     end
 
     # Lifecycle hooks - can be overridden by subclasses
@@ -32,7 +32,7 @@ module Walheim
 
     # Summary fields for get output - can be overridden by subclasses
     def self.summary_fields
-      {}  # Default: no summary fields
+      {} # Default: no summary fields
     end
 
     # Operation metadata - defines how operations appear in help
@@ -40,7 +40,7 @@ module Walheim
     def self.operation_info
       {
         get: {
-          description: 'List or retrieve resources',
+          description: "List or retrieve resources",
           usage: [
             "get #{kind_info[:plural]} -n {namespace}",
             "get #{kind_info[:plural]} --all/-A",
@@ -49,15 +49,15 @@ module Walheim
           options: {}  # Subclasses will override
         },
         apply: {
-          description: 'Create or update a resource',
-          usage: ["apply #{kind_info[:singular]} {name} -n {namespace}"],
+          description: "Create or update a resource",
+          usage: [ "apply #{kind_info[:singular]} {name} -n {namespace}" ],
           options: {
-            file: { type: :string, aliases: [:f], desc: 'Manifest file (use - for stdin)' }
+            file: { type: :string, aliases: [ :f ], desc: "Manifest file (use - for stdin)" }
           }
         },
         delete: {
-          description: 'Delete a resource',
-          usage: ["delete #{kind_info[:singular]} {name} -n {namespace}"],
+          description: "Delete a resource",
+          usage: [ "delete #{kind_info[:singular]} {name} -n {namespace}" ],
           options: {}  # Subclasses will override
         }
       }

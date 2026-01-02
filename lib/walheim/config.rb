@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'yaml'
-require 'fileutils'
+require "yaml"
+require "fileutils"
 
 module Walheim
   # Configuration management for Walheim contexts
@@ -10,9 +10,9 @@ module Walheim
     class ConfigError < StandardError; end
     class ValidationError < ConfigError; end
 
-    DEFAULT_CONFIG_PATH = File.expand_path('~/.walheim/config')
-    API_VERSION = 'walheim.io/v1'
-    KIND = 'Config'
+    DEFAULT_CONFIG_PATH = File.expand_path("~/.walheim/config")
+    API_VERSION = "walheim.io/v1"
+    KIND = "Config"
 
     attr_reader :current_context, :contexts, :config_path
 
@@ -35,18 +35,18 @@ module Walheim
       data = YAML.load_file(@config_path)
       validate_schema!(data)
 
-      @current_context = data['currentContext']
-      @contexts = data['contexts'].map do |ctx|
+      @current_context = data["currentContext"]
+      @contexts = data["contexts"].map do |ctx|
         {
-          'name' => ctx['name'],
-          'dataDir' => expand_path(ctx['dataDir'])
+          "name" => ctx["name"],
+          "dataDir" => expand_path(ctx["dataDir"])
         }
       end
 
       validate_current_context!
     rescue Psych::SyntaxError => e
       raise ConfigError, "Invalid YAML in config file: #{e.message}"
-    rescue => e
+    rescue StandardError => e
       raise ConfigError, "Failed to load config: #{e.message}"
     end
 
@@ -56,13 +56,13 @@ module Walheim
     # @raise [ConfigError] if file cannot be written
     def save_config
       data = {
-        'apiVersion' => API_VERSION,
-        'kind' => KIND,
-        'currentContext' => @current_context,
-        'contexts' => @contexts.map do |ctx|
+        "apiVersion" => API_VERSION,
+        "kind" => KIND,
+        "currentContext" => @current_context,
+        "contexts" => @contexts.map do |ctx|
           {
-            'name' => ctx['name'],
-            'dataDir' => ctx['dataDir']
+            "name" => ctx["name"],
+            "dataDir" => ctx["dataDir"]
           }
         end
       }
@@ -74,7 +74,7 @@ module Walheim
       temp_file = "#{@config_path}.tmp.#{Process.pid}"
       File.write(temp_file, YAML.dump(data))
       File.rename(temp_file, @config_path)
-    rescue => e
+    rescue StandardError => e
       File.delete(temp_file) if temp_file && File.exist?(temp_file)
       raise ConfigError, "Failed to save config: #{e.message}"
     end
@@ -86,12 +86,12 @@ module Walheim
     # @raise [ConfigError] if context not found or no current context
     def data_dir(context_name = nil)
       name = context_name || @current_context
-      raise ConfigError, 'No active context selected' if name.nil?
+      raise ConfigError, "No active context selected" if name.nil?
 
       context = find_context(name)
       raise ConfigError, "Context '#{name}' not found" if context.nil?
 
-      context['dataDir']
+      context["dataDir"]
     end
 
     # Add a new context
@@ -105,8 +105,8 @@ module Walheim
       raise ValidationError, "Context '#{name}' already exists" if find_context(name)
 
       @contexts << {
-        'name' => name,
-        'dataDir' => expand_path(data_dir)
+        "name" => name,
+        "dataDir" => expand_path(data_dir)
       }
 
       @current_context = name if activate
@@ -134,6 +134,7 @@ module Walheim
     # @raise [ConfigError] if context not found
     def use_context(name)
       raise ConfigError, "Context '#{name}' not found" unless find_context(name)
+
       @current_context = name
     end
 
@@ -142,7 +143,7 @@ module Walheim
     # @return [Array<Hash>] Array of context hashes with 'name', 'dataDir', and 'active' keys
     def list_contexts
       @contexts.map do |ctx|
-        ctx.merge('active' => ctx['name'] == @current_context)
+        ctx.merge("active" => ctx["name"] == @current_context)
       end
     end
 
@@ -159,7 +160,8 @@ module Walheim
     # Resolve the config file path with precedence: param > $WHCONFIG > default
     def resolve_config_path(config_path)
       return expand_path(config_path) if config_path
-      return expand_path(ENV['WHCONFIG']) if ENV['WHCONFIG']
+      return expand_path(ENV["WHCONFIG"]) if ENV["WHCONFIG"]
+
       DEFAULT_CONFIG_PATH
     end
 
@@ -170,27 +172,27 @@ module Walheim
 
     # Find a context by name
     def find_context(name)
-      @contexts.find { |ctx| ctx['name'] == name }
+      @contexts.find { |ctx| ctx["name"] == name }
     end
 
     # Validate config schema
     def validate_schema!(data)
-      raise ValidationError, 'Config must be a Hash' unless data.is_a?(Hash)
-      raise ValidationError, "Invalid apiVersion: expected '#{API_VERSION}'" unless data['apiVersion'] == API_VERSION
-      raise ValidationError, "Invalid kind: expected '#{KIND}'" unless data['kind'] == KIND
-      raise ValidationError, 'Missing required field: contexts' unless data['contexts']
-      raise ValidationError, 'contexts must be an Array' unless data['contexts'].is_a?(Array)
-      raise ValidationError, 'contexts array cannot be empty' if data['contexts'].empty?
+      raise ValidationError, "Config must be a Hash" unless data.is_a?(Hash)
+      raise ValidationError, "Invalid apiVersion: expected '#{API_VERSION}'" unless data["apiVersion"] == API_VERSION
+      raise ValidationError, "Invalid kind: expected '#{KIND}'" unless data["kind"] == KIND
+      raise ValidationError, "Missing required field: contexts" unless data["contexts"]
+      raise ValidationError, "contexts must be an Array" unless data["contexts"].is_a?(Array)
+      raise ValidationError, "contexts array cannot be empty" if data["contexts"].empty?
 
       # Validate each context
-      data['contexts'].each_with_index do |ctx, index|
+      data["contexts"].each_with_index do |ctx, index|
         raise ValidationError, "Context at index #{index} must be a Hash" unless ctx.is_a?(Hash)
-        raise ValidationError, "Context at index #{index} missing 'name'" unless ctx['name']
-        raise ValidationError, "Context at index #{index} missing 'dataDir'" unless ctx['dataDir']
+        raise ValidationError, "Context at index #{index} missing 'name'" unless ctx["name"]
+        raise ValidationError, "Context at index #{index} missing 'dataDir'" unless ctx["dataDir"]
       end
 
       # Check for duplicate context names
-      names = data['contexts'].map { |ctx| ctx['name'] }
+      names = data["contexts"].map { |ctx| ctx["name"] }
       duplicates = names.select { |name| names.count(name) > 1 }.uniq
       raise ValidationError, "Duplicate context names: #{duplicates.join(', ')}" unless duplicates.empty?
     end

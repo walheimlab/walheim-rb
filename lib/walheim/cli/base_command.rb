@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'helpers'
+require_relative "helpers"
 
 module Walheim
   module BaseCommand
@@ -9,8 +9,8 @@ module Walheim
       handler_info = Walheim::HandlerRegistry.get(kind)
       unless handler_info
         warn "Error: unknown kind '#{kind}'"
-        warn ''
-        warn 'Available kinds:'
+        warn ""
+        warn "Available kinds:"
         Walheim::HandlerRegistry.all_visible.each { |h| warn "  #{h[:name]}" }
         exit 1
       end
@@ -28,15 +28,11 @@ module Walheim
       handler = handler_info[:handler].new(data_dir: data_dir)
 
       # 5. Validate namespace requirements
-      if handler.is_a?(Walheim::NamespacedResource)
-        validate_namespace_options!(operation, kind, name, options)
-      end
+      validate_namespace_options!(operation, kind, name, options) if handler.is_a?(Walheim::NamespacedResource)
 
       # 6. Dispatch to handler
       dispatch_to_handler(handler, operation, name, options, handler_info)
     end
-
-    private
 
     def self.resolve_data_dir(options, parent_options)
       # Merge options
@@ -51,49 +47,50 @@ module Walheim
         if context_name
           config.data_dir(context_name)
         elsif all_options[:data_dir]
-          warn 'Warning: --data-dir is deprecated. Use contexts.'
+          warn "Warning: --data-dir is deprecated. Use contexts."
           all_options[:data_dir]
         else
-          warn 'Error: No Walheim configuration found.'
-          warn ''
-          warn 'Create your first context:'
-          warn '  whctl context new <name> --data-dir <path>'
+          warn "Error: No Walheim configuration found."
+          warn ""
+          warn "Create your first context:"
+          warn "  whctl context new <name> --data-dir <path>"
           exit 1
         end
       rescue Walheim::Config::ConfigError, Walheim::Config::ValidationError
         if all_options[:data_dir]
-          warn 'Warning: --data-dir is deprecated.'
+          warn "Warning: --data-dir is deprecated."
           all_options[:data_dir]
         else
-          warn 'Error: No Walheim configuration found.'
-          warn ''
-          warn 'Create your first context:'
-          warn '  whctl context new <name> --data-dir <path>'
+          warn "Error: No Walheim configuration found."
+          warn ""
+          warn "Create your first context:"
+          warn "  whctl context new <name> --data-dir <path>"
           exit 1
         end
       end
     end
 
-    def self.validate_namespace_options!(operation, kind, name, options)
+    def self.validate_namespace_options!(operation, kind, _name, options)
       # Operations that require namespace or --all
-      requires_namespace = [:get, :apply, :delete, :start, :pause, :stop, :logs, :import]
+      requires_namespace = %i[get apply delete start pause stop logs import]
       return unless requires_namespace.include?(operation)
 
       # get can use --all
       if operation == :get
         return if options[:all] || options[:namespace]
-        warn 'Error: either -n {namespace} or --all/-A flag is required'
+
+        warn "Error: either -n {namespace} or --all/-A flag is required"
         warn "Usage: whctl get #{kind} -n {namespace}"
         warn "Usage: whctl get #{kind} --all"
         exit 1
       end
 
       # Other operations require namespace
-      unless options[:namespace]
-        warn 'Error: -n {namespace} is required'
-        warn "Usage: whctl #{operation} #{kind} {name} -n {namespace}"
-        exit 1
-      end
+      return if options[:namespace]
+
+      warn "Error: -n {namespace} is required"
+      warn "Usage: whctl #{operation} #{kind} {name} -n {namespace}"
+      exit 1
     end
 
     def self.dispatch_to_handler(handler, operation, name, options, handler_info)
@@ -131,45 +128,43 @@ module Walheim
         Walheim::Helpers.print_cluster_resources_table(result, handler_info[:name])
       else
         result = if options[:all]
-          handler.get(namespace: nil, name: nil)
+                   handler.get(namespace: nil, name: nil)
         else
-          handler.get(namespace: options[:namespace], name: name)
+                   handler.get(namespace: options[:namespace], name: name)
         end
         Walheim::Helpers.print_resources_table(result, options[:all], handler_info[:name])
       end
     end
 
-    def self.dispatch_apply(handler, name, options, handler_info)
+    def self.dispatch_apply(handler, name, options, _handler_info)
       # Extract from manifest if -f provided
       if options[:file]
         manifest_data = Walheim::Helpers.read_yaml_input(options[:file])
 
         if handler.is_a?(Walheim::NamespacedResource)
-          namespace = manifest_data['metadata']['namespace']
-          name = manifest_data['metadata']['name']
+          namespace = manifest_data["metadata"]["namespace"]
+          name = manifest_data["metadata"]["name"]
 
           unless namespace && name
-            warn 'Error: Manifest must contain metadata.namespace and metadata.name'
+            warn "Error: Manifest must contain metadata.namespace and metadata.name"
             exit 1
           end
 
           handler.apply(namespace: namespace, name: name, manifest_source: options[:file])
         else
           # Cluster resource
-          name = manifest_data['metadata']['name']
+          name = manifest_data["metadata"]["name"]
           unless name
-            warn 'Error: Manifest must contain metadata.name'
+            warn "Error: Manifest must contain metadata.name"
             exit 1
           end
           handler.apply(name: name, manifest_source: options[:file])
         end
-      else
+      elsif handler.is_a?(Walheim::NamespacedResource)
         # Apply from existing manifest in data dir
-        if handler.is_a?(Walheim::NamespacedResource)
-          handler.apply(namespace: options[:namespace], name: name)
-        else
-          handler.apply(name: name)
-        end
+        handler.apply(namespace: options[:namespace], name: name)
+      else
+        handler.apply(name: name)
       end
     end
   end

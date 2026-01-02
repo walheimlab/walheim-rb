@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'resource'
+require_relative "resource"
 
 module Walheim
   # NamespacedResource represents resources that are scoped to a namespace
@@ -15,15 +15,15 @@ module Walheim
       namespace_options = {
         namespace: {
           type: :string,
-          aliases: [:n],
-          desc: 'Target namespace',
-          required: false  # Validated at runtime
+          aliases: [ :n ],
+          desc: "Target namespace",
+          required: false # Validated at runtime
         },
         all: {
           type: :boolean,
-          aliases: [:A],
-          desc: 'All namespaces',
-          banner: ''  # No value needed for boolean
+          aliases: [ :A ],
+          desc: "All namespaces",
+          banner: "" # No value needed for boolean
         }
       }
 
@@ -38,9 +38,9 @@ module Walheim
 
     def apply(namespace:, name:, manifest_source: nil)
       manifest_data = if manifest_source
-        File.read(manifest_source)
+                        File.read(manifest_source)
       else
-        read_manifest_from_db(namespace, name)
+                        read_manifest_from_db(namespace, name)
       end
 
       if resource_exists?(namespace, name)
@@ -105,7 +105,7 @@ module Walheim
         # Get single resource
         get_single_resource(namespace, name)
       else
-        raise ArgumentError, 'namespace is required when name is specified'
+        raise ArgumentError, "namespace is required when name is specified"
       end
     end
 
@@ -119,7 +119,7 @@ module Walheim
 
       manifest_path = File.join(resource_dir(namespace, name), manifest_filename)
       manifest_content = File.read(manifest_path)
-      manifest_data = YAML.load(manifest_content)
+      manifest_data = YAML.safe_load(manifest_content)
 
       # Compute summary fields
       summary = {}
@@ -137,7 +137,7 @@ module Walheim
 
     # Path to resource directory: {data_dir}/namespaces/{namespace}/{kind_plural}/{name}/
     def resource_dir(namespace, name)
-      File.join(@data_dir, 'namespaces', namespace, self.class.kind_info[:plural], name)
+      File.join(@data_dir, "namespaces", namespace, self.class.kind_info[:plural], name)
     end
 
     def resource_exists?(namespace, name)
@@ -169,7 +169,7 @@ module Walheim
     end
 
     def list_single_namespace(namespace)
-      namespaces_dir = File.join(@data_dir, 'namespaces')
+      namespaces_dir = File.join(@data_dir, "namespaces")
       namespace_path = File.join(namespaces_dir, namespace)
 
       unless Dir.exist?(namespace_path)
@@ -182,7 +182,10 @@ module Walheim
 
       # Find all resource directories
       resource_names = Dir.entries(resources_path)
-                          .select { |entry| File.directory?(File.join(resources_path, entry)) && !entry.start_with?('.') }
+                          .select do |entry|
+        File.directory?(File.join(resources_path,
+                                  entry)) && !entry.start_with?(".")
+      end
                           .sort
 
       # Return array of manifest hashes
@@ -192,13 +195,16 @@ module Walheim
     end
 
     def list_all_namespaces
-      namespaces_dir = File.join(@data_dir, 'namespaces')
+      namespaces_dir = File.join(@data_dir, "namespaces")
       return [] unless Dir.exist?(namespaces_dir)
 
       # Find all namespaces
       namespace_names = Dir.entries(namespaces_dir)
-                           .select { |entry| File.directory?(File.join(namespaces_dir, entry)) && !entry.start_with?('.') }
-                           .select { |entry| File.exist?(File.join(namespaces_dir, entry, '.namespace.yaml')) }
+                           .select do |entry|
+        File.directory?(File.join(namespaces_dir,
+                                  entry)) && !entry.start_with?(".")
+      end
+                           .select { |entry| File.exist?(File.join(namespaces_dir, entry, ".namespace.yaml")) }
                            .sort
 
       # Collect all resources from all namespaces
@@ -208,7 +214,10 @@ module Walheim
         next unless Dir.exist?(resources_path)
 
         resource_names = Dir.entries(resources_path)
-                            .select { |entry| File.directory?(File.join(resources_path, entry)) && !entry.start_with?('.') }
+                            .select do |entry|
+          File.directory?(File.join(resources_path,
+                                    entry)) && !entry.start_with?(".")
+        end
                             .sort
 
         resource_names.each do |resource_name|
@@ -216,7 +225,7 @@ module Walheim
         end
       end
 
-      all_resources.sort_by { |resource| [resource[:namespace], resource[:name]] }
+      all_resources.sort_by { |resource| [ resource[:namespace], resource[:name] ] }
     end
   end
 end

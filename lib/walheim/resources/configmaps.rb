@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-require_relative '../namespaced_resource'
-require_relative '../handler_registry'
+require_relative "../namespaced_resource"
+require_relative "../handler_registry"
 
 module Resources
   class ConfigMaps < Walheim::NamespacedResource
     def self.kind_info
       {
-        plural: 'configmaps',
-        singular: 'configmap',
-        aliases: ['cm']  # Abbreviation
+        plural: "configmaps",
+        singular: "configmap",
+        aliases: [ "cm" ] # Abbreviation
       }
     end
 
@@ -24,7 +24,7 @@ module Resources
     def self.summary_fields
       {
         keys: lambda { |manifest|
-          (manifest['data'] || {}).keys.join(', ')
+          (manifest["data"] || {}).keys.join(", ")
         }
       }
     end
@@ -32,7 +32,7 @@ module Resources
     private
 
     def manifest_filename
-      'configmap.yaml'
+      "configmap.yaml"
     end
   end
 end

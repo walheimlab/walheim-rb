@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
+require_relative "base_command"
 
 module Walheim
   module ResourceCommand
@@ -10,7 +10,7 @@ module Walheim
       return if handlers.empty?
 
       # Build command description
-      descriptions = handlers.map { |h| h[:name] }.join(', ')
+      descriptions = handlers.map { |h| h[:name] }.join(", ")
       desc_text = "#{operation.to_s.capitalize} resources (#{descriptions})"
 
       # Define Thor command
@@ -21,12 +21,10 @@ module Walheim
       all_options = {}
       handlers.each do |handler_info|
         handler_class = handler_info[:handler]
-        if handler_class.respond_to?(:operation_info)
-          op_metadata = handler_class.operation_info[operation]
-          if op_metadata && op_metadata[:options]
-            all_options.merge!(op_metadata[:options])
-          end
-        end
+        next unless handler_class.respond_to?(:operation_info)
+
+        op_metadata = handler_class.operation_info[operation]
+        all_options.merge!(op_metadata[:options]) if op_metadata && op_metadata[:options]
       end
 
       # Register options with Thor
@@ -43,7 +41,11 @@ module Walheim
           kind: kind,
           name: name,
           options: options,
-          parent_options: self.class.class_options.transform_keys(&:to_sym).transform_values { |v| options[v.name] rescue nil }
+          parent_options: self.class.class_options.transform_keys(&:to_sym).transform_values do |v|
+            options[v.name]
+          rescue StandardError
+            nil
+          end
         )
       end
     end

@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
-require 'yaml'
+require "yaml"
 
 module Walheim
   class Sync
-    def initialize(namespaces_dir: 'namespaces', remote_base_dir: '/data/walheim')
+    def initialize(namespaces_dir: "namespaces", remote_base_dir: "/data/walheim")
       @namespaces_dir = namespaces_dir
       @remote_base_dir = remote_base_dir
     end
 
     def sync(namespace:, kind:, name:)
       namespace_config = load_namespace_config(namespace)
-      username = namespace_config['username']
-      hostname = namespace_config['hostname']
+      username = namespace_config["username"]
+      hostname = namespace_config["hostname"]
 
       # Build remote host string (with optional username)
       remote_host = username ? "#{username}@#{hostname}" : hostname
@@ -35,7 +35,7 @@ module Walheim
       sync_result = system("rsync -avz --delete #{local_dir} #{remote_host}:#{remote_dir}")
 
       unless sync_result
-        warn 'Error: rsync failed'
+        warn "Error: rsync failed"
         exit 1
       end
 
