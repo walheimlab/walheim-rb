@@ -9,8 +9,8 @@ module Resources
     def initialize(data_dir: Dir.pwd)
       super(data_dir: data_dir)
       # Sync needs the full path to namespaces directory
-      namespaces_dir = File.join(data_dir, "namespaces")
-      @syncer = Walheim::Sync.new(namespaces_dir: namespaces_dir)
+      @namespaces_dir = File.join(data_dir, "namespaces")
+      @syncer = Walheim::Sync.new(namespaces_dir: @namespaces_dir)
     end
 
     def self.kind_info
