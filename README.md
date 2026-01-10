@@ -1,5 +1,6 @@
 # Walheim
 
+[![Gem Version](https://img.shields.io/gem/v/walheim)](https://rubygems.org/gems/walheim)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/walheimlab/walheim-rb)
 
 A kubectl-style CLI for managing Docker-based homelab infrastructure across multiple machines.
