@@ -28,7 +28,12 @@ module Resources
         get: {
           description: "List all namespaces",
           usage: [ "get namespaces" ],
-          options: {} # No namespace flag for cluster resource
+          options: {}, # No namespace flag for cluster resource
+          dispatch: {
+            method: :get,
+            params: [:name],
+            output: :table
+          }
         },
         create: {
           description: "Create a new namespace",
@@ -36,6 +41,14 @@ module Resources
           options: {
             username: { type: :string, desc: "SSH username for namespace" },
             hostname: { type: :string, desc: "Hostname for namespace" }
+          },
+          dispatch: {
+            method: :create,
+            params: [:name],
+            named_params: {
+              username: :username,
+              hostname: :hostname
+            }
           }
         },
         apply: {
@@ -43,12 +56,23 @@ module Resources
           usage: [ "apply namespace {name}", "apply -f namespace.yaml" ],
           options: {
             file: { type: :string, aliases: [ :f ], desc: "Manifest file" }
+          },
+          dispatch: {
+            method: :apply,
+            params: [:name],
+            named_params: {
+              manifest_source: :file
+            }
           }
         },
         delete: {
           description: "Delete a namespace",
           usage: [ "delete namespace {name}" ],
-          options: {}
+          options: {},
+          dispatch: {
+            method: :delete,
+            params: [:name]
+          }
         }
       }
     end

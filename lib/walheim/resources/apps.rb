@@ -56,22 +56,50 @@ module Resources
                     options: {
                       namespace: namespace_opt,
                       file: { type: :string, aliases: [ :f ], desc: "docker-compose.yml path", required: true }
+                    },
+                    dispatch: {
+                      method: :import,
+                      params: [:name],
+                      named_params: {
+                        namespace: :namespace,
+                        compose_manifest: :file
+                      },
+                      namespace_handling: :required,
+                      file_reader: :compose_manifest # Read YAML from file option
                     }
                   },
                   start: {
                     description: "Compile, sync, and start app on host",
                     usage: [ "start app {name} -n {namespace}" ],
-                    options: { namespace: namespace_opt }
+                    options: { namespace: namespace_opt },
+                    dispatch: {
+                      method: :start,
+                      params: [:name],
+                      named_params: { namespace: :namespace },
+                      namespace_handling: :required
+                    }
                   },
                   pause: {
                     description: "Stop app containers (keep files)",
                     usage: [ "pause app {name} -n {namespace}" ],
-                    options: { namespace: namespace_opt }
+                    options: { namespace: namespace_opt },
+                    dispatch: {
+                      method: :pause,
+                      params: [:name],
+                      named_params: { namespace: :namespace },
+                      namespace_handling: :required
+                    }
                   },
                   stop: {
                     description: "Stop app and remove files from host",
                     usage: [ "stop app {name} -n {namespace}" ],
-                    options: { namespace: namespace_opt }
+                    options: { namespace: namespace_opt },
+                    dispatch: {
+                      method: :stop,
+                      params: [:name],
+                      named_params: { namespace: :namespace },
+                      namespace_handling: :required
+                    }
                   },
                   logs: {
                     description: "View logs from remote containers",
@@ -86,12 +114,29 @@ module Resources
                       follow: { type: :boolean, desc: "Follow log output" },
                       tail: { type: :numeric, desc: "Number of lines from end" },
                       timestamps: { type: :boolean, desc: "Show timestamps" }
+                    },
+                    dispatch: {
+                      method: :logs,
+                      params: [:name],
+                      named_params: {
+                        namespace: :namespace,
+                        follow: :follow,
+                        tail: :tail,
+                        timestamps: :timestamps
+                      },
+                      namespace_handling: :required
                     }
                   },
                   pull: {
                     description: "Pull latest images without restarting",
                     usage: [ "pull app {name} -n {namespace}" ],
-                    options: { namespace: namespace_opt }
+                    options: { namespace: namespace_opt },
+                    dispatch: {
+                      method: :pull,
+                      params: [:name],
+                      named_params: { namespace: :namespace },
+                      namespace_handling: :required
+                    }
                   }
                 })
     end

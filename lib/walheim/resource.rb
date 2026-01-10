@@ -35,7 +35,7 @@ module Walheim
       {} # Default: no summary fields
     end
 
-    # Operation metadata - defines how operations appear in help
+    # Operation metadata - defines how operations appear in help and how they're dispatched
     # Subclasses can override to add custom operations
     def self.operation_info
       {
@@ -46,19 +46,35 @@ module Walheim
             "get #{kind_info[:plural]} --all/-A",
             "get #{kind_info[:singular]} {name} -n {namespace}"
           ],
-          options: {}  # Subclasses will override
+          options: {},  # Subclasses will override
+          dispatch: {
+            method: :get,
+            params: [:name],
+            output: :table
+          }
         },
         apply: {
           description: "Create or update a resource",
           usage: [ "apply #{kind_info[:singular]} {name} -n {namespace}" ],
           options: {
             file: { type: :string, aliases: [ :f ], desc: "Manifest file (use - for stdin)" }
+          },
+          dispatch: {
+            method: :apply,
+            params: [:name],
+            named_params: {
+              manifest_source: :file
+            }
           }
         },
         delete: {
           description: "Delete a resource",
           usage: [ "delete #{kind_info[:singular]} {name} -n {namespace}" ],
-          options: {}  # Subclasses will override
+          options: {},  # Subclasses will override
+          dispatch: {
+            method: :delete,
+            params: [:name]
+          }
         }
       }
     end

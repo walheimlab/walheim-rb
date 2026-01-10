@@ -7,7 +7,7 @@ module Walheim
   # Examples: Apps, Secrets, ConfigMaps
   # These resources live under namespaces/{namespace}/{kind}/{name}/
   class NamespacedResource < Resource
-    # Override operation_info to add namespace flags
+    # Override operation_info to add namespace flags and dispatch params
     def self.operation_info
       ops = super
 
@@ -30,6 +30,17 @@ module Walheim
       ops[:get][:options].merge!(namespace_options)
       ops[:apply][:options].merge!(namespace: namespace_options[:namespace])
       ops[:delete][:options].merge!(namespace: namespace_options[:namespace])
+
+      # Add namespace parameter to dispatch
+      ops[:get][:dispatch][:named_params] = { namespace: :namespace }
+      ops[:get][:dispatch][:namespace_handling] = :optional_with_all
+
+      ops[:apply][:dispatch][:named_params] ||= {}
+      ops[:apply][:dispatch][:named_params][:namespace] = :namespace
+      ops[:apply][:dispatch][:namespace_handling] = :required
+
+      ops[:delete][:dispatch][:named_params] = { namespace: :namespace }
+      ops[:delete][:dispatch][:namespace_handling] = :required
 
       ops
     end

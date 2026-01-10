@@ -16,22 +16,30 @@ module Walheim
       end
 
       # 2. Check operation support
+      handler_class = handler_info[:handler]
       unless Walheim::HandlerRegistry.supports_operation?(kind, operation)
         warn "Error: #{operation} not supported for #{kind}"
         exit 1
       end
 
-      # 3. Resolve data directory from context
+      # 3. Get operation metadata
+      op_metadata = handler_class.operation_info[operation]
+      unless op_metadata
+        warn "Error: operation metadata missing for #{operation}"
+        exit 1
+      end
+
+      # 4. Resolve data directory from context
       data_dir = resolve_data_dir(options, parent_options)
 
-      # 4. Initialize handler
-      handler = handler_info[:handler].new(data_dir: data_dir)
+      # 5. Initialize handler
+      handler = handler_class.new(data_dir: data_dir)
 
-      # 5. Validate namespace requirements
-      validate_namespace_options!(operation, kind, name, options) if handler.is_a?(Walheim::NamespacedResource)
+      # 6. Validate namespace requirements
+      validate_namespace_requirements!(operation, kind, name, options, op_metadata) if handler.is_a?(Walheim::NamespacedResource)
 
-      # 6. Dispatch to handler
-      dispatch_to_handler(handler, operation, name, options, handler_info)
+      # 7. Dispatch to handler using metadata
+      dispatch_operation(handler, operation, name, options, handler_info, op_metadata)
     end
 
     def self.resolve_data_dir(options, parent_options)
@@ -70,101 +78,97 @@ module Walheim
       end
     end
 
-    def self.validate_namespace_options!(operation, kind, _name, options)
-      # Operations that require namespace or --all
-      requires_namespace = %i[get apply delete start pause stop logs pull import]
-      return unless requires_namespace.include?(operation)
+    def self.validate_namespace_requirements!(operation, kind, _name, options, op_metadata)
+      dispatch_meta = op_metadata[:dispatch] || {}
+      namespace_handling = dispatch_meta[:namespace_handling]
 
-      # get can use --all
-      if operation == :get
+      case namespace_handling
+      when :optional_with_all
+        # Operations like get can use --all or -n
         return if options[:all] || options[:namespace]
 
         warn "Error: either -n {namespace} or --all/-A flag is required"
-        warn "Usage: whctl get #{kind} -n {namespace}"
-        warn "Usage: whctl get #{kind} --all"
+        warn "Usage: whctl #{operation} #{kind} -n {namespace}"
+        warn "Usage: whctl #{operation} #{kind} --all"
         exit 1
-      end
+      when :required
+        # Operations require namespace
+        return if options[:namespace]
 
-      # Other operations require namespace
-      return if options[:namespace]
-
-      warn "Error: -n {namespace} is required"
-      warn "Usage: whctl #{operation} #{kind} {name} -n {namespace}"
-      exit 1
-    end
-
-    def self.dispatch_to_handler(handler, operation, name, options, handler_info)
-      case operation
-      when :get
-        dispatch_get(handler, name, options, handler_info)
-      when :apply
-        dispatch_apply(handler, name, options, handler_info)
-      when :delete
-        handler.delete(namespace: options[:namespace], name: name)
-      when :create
-        # Special case: create namespace
-        handler.create(name: name, username: options[:username], hostname: options[:hostname])
-      when :import
-        # Special case: import app
-        compose_manifest = Walheim::Helpers.read_yaml_input(options[:file])
-        handler.import(namespace: options[:namespace], name: name, compose_manifest: compose_manifest)
-      when :start, :pause, :stop, :pull
-        handler.send(operation, namespace: options[:namespace], name: name)
-      when :logs
-        log_opts = {}
-        log_opts[:follow] = options[:follow] if options[:follow]
-        log_opts[:tail] = options[:tail] if options[:tail]
-        log_opts[:timestamps] = options[:timestamps] if options[:timestamps]
-        handler.logs(namespace: options[:namespace], name: name, **log_opts)
+        warn "Error: -n {namespace} is required"
+        warn "Usage: whctl #{operation} #{kind} {name} -n {namespace}"
+        exit 1
+      when nil
+        # No namespace validation needed
+        nil
       else
-        warn "Error: operation #{operation} not implemented"
+        warn "Error: unknown namespace_handling: #{namespace_handling}"
         exit 1
       end
     end
 
-    def self.dispatch_get(handler, name, options, handler_info)
-      if handler.is_a?(Walheim::ClusterResource)
-        result = handler.get(name: name)
-        Walheim::Helpers.print_cluster_resources_table(result, handler_info[:name])
-      else
-        result = if options[:all]
-                   handler.get(namespace: nil, name: nil)
-        else
-                   handler.get(namespace: options[:namespace], name: name)
-        end
-        Walheim::Helpers.print_resources_table(result, options[:all], handler_info[:name])
-      end
+    def self.dispatch_operation(handler, operation, name, options, handler_info, op_metadata)
+      dispatch_meta = op_metadata[:dispatch] || {}
+      method_name = dispatch_meta[:method] || operation
+
+      # Build method parameters
+      params = build_method_params(name, options, dispatch_meta)
+
+      # Call handler method
+      result = handler.send(method_name, **params)
+
+      # Handle output formatting
+      handle_output(result, handler, handler_info, options, dispatch_meta)
     end
 
-    def self.dispatch_apply(handler, name, options, _handler_info)
-      # Extract from manifest if -f provided
-      if options[:file]
-        manifest_data = Walheim::Helpers.read_yaml_input(options[:file])
+    def self.build_method_params(name, options, dispatch_meta)
+      params = {}
 
-        if handler.is_a?(Walheim::NamespacedResource)
-          namespace = manifest_data["metadata"]["namespace"]
-          name = manifest_data["metadata"]["name"]
-
-          unless namespace && name
-            warn "Error: Manifest must contain metadata.namespace and metadata.name"
-            exit 1
-          end
-
-          handler.apply(namespace: namespace, name: name, manifest_source: options[:file])
+      # Add positional params (like :name)
+      positional_params = dispatch_meta[:params] || []
+      positional_params.each do |param_name|
+        case param_name
+        when :name
+          params[:name] = name
         else
-          # Cluster resource
-          name = manifest_data["metadata"]["name"]
-          unless name
-            warn "Error: Manifest must contain metadata.name"
-            exit 1
-          end
-          handler.apply(name: name, manifest_source: options[:file])
+          params[param_name] = options[param_name]
         end
-      elsif handler.is_a?(Walheim::NamespacedResource)
-        # Apply from existing manifest in data dir
-        handler.apply(namespace: options[:namespace], name: name)
+      end
+
+      # Add named params from options
+      named_params = dispatch_meta[:named_params] || {}
+      named_params.each do |param_name, option_key|
+        option_value = options[option_key]
+
+        # Handle file readers
+        if dispatch_meta[:file_reader] == param_name && option_value
+          option_value = Walheim::Helpers.read_yaml_input(option_value)
+        end
+
+        # Always include declared parameters (handlers expect them as keyword args)
+        params[param_name] = option_value
+      end
+
+      params
+    end
+
+    def self.handle_output(result, handler, handler_info, options, dispatch_meta)
+      output_type = dispatch_meta[:output]
+
+      case output_type
+      when :table
+        # Table output for get operations
+        if handler.is_a?(Walheim::ClusterResource)
+          Walheim::Helpers.print_cluster_resources_table(result, handler_info[:name])
+        else
+          Walheim::Helpers.print_resources_table(result, options[:all], handler_info[:name])
+        end
+      when nil
+        # No output handling needed (handler prints directly)
+        nil
       else
-        handler.apply(name: name)
+        warn "Error: unknown output type: #{output_type}"
+        exit 1
       end
     end
   end
