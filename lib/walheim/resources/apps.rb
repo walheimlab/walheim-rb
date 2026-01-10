@@ -54,7 +54,7 @@ module Resources
       # Start with base operations
       ops = super
 
-      namespace_opt = { type: :string, aliases: [ :n ], desc: "Target namespace", required: true }
+      namespace_opt = { type: :string, aliases: [ :n ], desc: "Target namespace" }
 
       # Add apps-specific operations
       ops.merge({
