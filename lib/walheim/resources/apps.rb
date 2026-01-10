@@ -156,6 +156,31 @@ module Resources
                       named_params: { namespace: :namespace },
                       namespace_handling: :required
                     }
+                  },
+                  exec: {
+                    description: "Execute command in app container",
+                    usage: [
+                      "exec app {name} -n {namespace} -c {command}",
+                      "exec app {name} -n {namespace} -s {service} -c {command}",
+                      "exec app {name} -n {namespace} -it -c bash"
+                    ],
+                    options: {
+                      namespace: namespace_opt,
+                      service: { type: :string, aliases: [ :s ], desc: "Target service (defaults to first)" },
+                      interactive: { type: :boolean, aliases: [ :it ], desc: "Allocate pseudo-TTY and keep stdin open" },
+                      command: { type: :string, aliases: [ :c ], desc: "Command to execute (e.g., 'bash', 'ls -la')", required: true }
+                    },
+                    dispatch: {
+                      method: :exec,
+                      params: [:name],
+                      named_params: {
+                        namespace: :namespace,
+                        service: :service,
+                        interactive: :interactive,
+                        command: :command
+                      },
+                      namespace_handling: :required
+                    }
                   }
                 })
     end
@@ -372,6 +397,56 @@ module Resources
       unless stats_result
         puts "(No running containers or unable to fetch stats)"
       end
+    end
+
+    def exec(namespace:, name:, service: nil, interactive: false, command: nil)
+      # Get namespace config
+      namespace_config = load_namespace_config(namespace)
+      username = namespace_config["username"]
+      hostname = namespace_config["hostname"]
+
+      remote_host = username ? "#{username}@#{hostname}" : hostname
+      remote_dir = "/data/walheim/apps/#{name}"
+
+      # Check if remote directory exists
+      check_command = "ssh #{remote_host} 'test -d #{remote_dir}'"
+      dir_exists = system(check_command)
+
+      unless dir_exists
+        warn "Error: app '#{name}' not found on #{remote_host}"
+        warn "Deploy the app first using 'whctl apply app #{name} -n #{namespace}'"
+        exit 1
+      end
+
+      # Determine service name
+      service_name = service
+      unless service_name
+        # Get first service from docker-compose.yml
+        app_manifest = load_app_manifest(namespace, name)
+        services = app_manifest[:compose]["services"]
+
+        if services.nil? || services.empty?
+          warn "Error: no services found in app '#{name}'"
+          exit 1
+        end
+
+        service_name = services.keys.first
+        puts "Defaulting to service: #{service_name}"
+      end
+
+      # Build docker compose exec command
+      exec_cmd = "docker compose exec"
+      exec_cmd += " -T" unless interactive  # Disable pseudo-TTY allocation when not interactive
+      exec_cmd += " -it" if interactive
+      exec_cmd += " #{Shellwords.escape(service_name)} #{command}"
+
+      # Build SSH command
+      # Use -t flag for SSH when interactive mode is requested
+      ssh_flags = interactive ? "-t" : ""
+      ssh_command = "ssh #{ssh_flags} #{remote_host} 'cd #{remote_dir} && #{exec_cmd}'"
+
+      # Use exec to replace current process for proper signal handling
+      exec(ssh_command)
     end
 
     # Override get to pre-fetch container status
