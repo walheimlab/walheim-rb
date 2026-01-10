@@ -49,7 +49,7 @@ module Walheim
           options: {},  # Subclasses will override
           dispatch: {
             method: :get,
-            params: [:name],
+            params: [ :name ],
             output: :table
           }
         },
@@ -61,7 +61,7 @@ module Walheim
           },
           dispatch: {
             method: :apply,
-            params: [:name],
+            params: [ :name ],
             named_params: {
               manifest_source: :file
             }
@@ -73,7 +73,7 @@ module Walheim
           options: {},  # Subclasses will override
           dispatch: {
             method: :delete,
-            params: [:name]
+            params: [ :name ]
           }
         }
       }

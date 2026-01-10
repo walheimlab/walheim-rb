@@ -67,7 +67,7 @@ module Resources
                     },
                     dispatch: {
                       method: :import,
-                      params: [:name],
+                      params: [ :name ],
                       named_params: {
                         namespace: :namespace,
                         compose_manifest: :file
@@ -82,7 +82,7 @@ module Resources
                     options: { namespace: namespace_opt },
                     dispatch: {
                       method: :start,
-                      params: [:name],
+                      params: [ :name ],
                       named_params: { namespace: :namespace },
                       namespace_handling: :required
                     }
@@ -93,7 +93,7 @@ module Resources
                     options: { namespace: namespace_opt },
                     dispatch: {
                       method: :pause,
-                      params: [:name],
+                      params: [ :name ],
                       named_params: { namespace: :namespace },
                       namespace_handling: :required
                     }
@@ -104,7 +104,7 @@ module Resources
                     options: { namespace: namespace_opt },
                     dispatch: {
                       method: :stop,
-                      params: [:name],
+                      params: [ :name ],
                       named_params: { namespace: :namespace },
                       namespace_handling: :required
                     }
@@ -125,7 +125,7 @@ module Resources
                     },
                     dispatch: {
                       method: :logs,
-                      params: [:name],
+                      params: [ :name ],
                       named_params: {
                         namespace: :namespace,
                         follow: :follow,
@@ -141,7 +141,7 @@ module Resources
                     options: { namespace: namespace_opt },
                     dispatch: {
                       method: :pull,
-                      params: [:name],
+                      params: [ :name ],
                       named_params: { namespace: :namespace },
                       namespace_handling: :required
                     }
@@ -152,33 +152,8 @@ module Resources
                     options: { namespace: namespace_opt },
                     dispatch: {
                       method: :describe,
-                      params: [:name],
+                      params: [ :name ],
                       named_params: { namespace: :namespace },
-                      namespace_handling: :required
-                    }
-                  },
-                  exec: {
-                    description: "Execute command in app container",
-                    usage: [
-                      "exec app {name} -n {namespace} -c {command}",
-                      "exec app {name} -n {namespace} -s {service} -c {command}",
-                      "exec app {name} -n {namespace} -it -c bash"
-                    ],
-                    options: {
-                      namespace: namespace_opt,
-                      service: { type: :string, aliases: [ :s ], desc: "Target service (defaults to first)" },
-                      interactive: { type: :boolean, aliases: [ :it ], desc: "Allocate pseudo-TTY and keep stdin open" },
-                      command: { type: :string, aliases: [ :c ], desc: "Command to execute (e.g., 'bash', 'ls -la')", required: true }
-                    },
-                    dispatch: {
-                      method: :exec,
-                      params: [:name],
-                      named_params: {
-                        namespace: :namespace,
-                        service: :service,
-                        interactive: :interactive,
-                        command: :command
-                      },
                       namespace_handling: :required
                     }
                   }
@@ -399,7 +374,7 @@ module Resources
       end
     end
 
-    def exec(namespace:, name:, service: nil, interactive: false, command: nil)
+    def exec_command(namespace:, name:, service: nil, interactive: false, command:)
       # Get namespace config
       namespace_config = load_namespace_config(namespace)
       username = namespace_config["username"]
@@ -415,6 +390,13 @@ module Resources
       unless dir_exists
         warn "Error: app '#{name}' not found on #{remote_host}"
         warn "Deploy the app first using 'whctl apply app #{name} -n #{namespace}'"
+        exit 1
+      end
+
+      # Validate command
+      if command.nil? || command.empty?
+        warn "Error: command is required"
+        warn "Usage: whctl exec app {name} -n {namespace} [--] {command} [args...]"
         exit 1
       end
 
@@ -435,10 +417,12 @@ module Resources
       end
 
       # Build docker compose exec command
+      # command is an array, so join with spaces and properly escape
+      command_str = Shellwords.join(command)
       exec_cmd = "docker compose exec"
       exec_cmd += " -T" unless interactive  # Disable pseudo-TTY allocation when not interactive
       exec_cmd += " -it" if interactive
-      exec_cmd += " #{Shellwords.escape(service_name)} #{command}"
+      exec_cmd += " #{Shellwords.escape(service_name)} #{command_str}"
 
       # Build SSH command
       # Use -t flag for SSH when interactive mode is requested
@@ -446,7 +430,7 @@ module Resources
       ssh_command = "ssh #{ssh_flags} #{remote_host} 'cd #{remote_dir} && #{exec_cmd}'"
 
       # Use exec to replace current process for proper signal handling
-      exec(ssh_command)
+      Kernel.exec(ssh_command)
     end
 
     # Override get to pre-fetch container status
@@ -457,10 +441,10 @@ module Resources
                               all_namespace_names
       elsif name.nil?
                               # Fetching single namespace
-                              [namespace]
+                              [ namespace ]
       else
                               # Fetching single resource
-                              [namespace]
+                              [ namespace ]
       end
 
       # Pre-fetch container status for relevant namespaces

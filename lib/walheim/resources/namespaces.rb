@@ -31,7 +31,7 @@ module Resources
           options: {}, # No namespace flag for cluster resource
           dispatch: {
             method: :get,
-            params: [:name],
+            params: [ :name ],
             output: :table
           }
         },
@@ -44,7 +44,7 @@ module Resources
           },
           dispatch: {
             method: :create,
-            params: [:name],
+            params: [ :name ],
             named_params: {
               username: :username,
               hostname: :hostname
@@ -59,7 +59,7 @@ module Resources
           },
           dispatch: {
             method: :apply,
-            params: [:name],
+            params: [ :name ],
             named_params: {
               manifest_source: :file
             }
@@ -71,7 +71,7 @@ module Resources
           options: {},
           dispatch: {
             method: :delete,
-            params: [:name]
+            params: [ :name ]
           }
         },
         describe: {
@@ -80,7 +80,7 @@ module Resources
           options: {},
           dispatch: {
             method: :describe,
-            params: [:name]
+            params: [ :name ]
           }
         }
       }
@@ -156,7 +156,7 @@ module Resources
           apps_info[:apps].each do |app|
             status_display = format_app_status(app[:status])
             ready_display = app[:ready] || "-"
-            puts "  %-15s %-12s %s" % [app[:name], status_display, ready_display]
+            puts "  %-15s %-12s %s" % [ app[:name], status_display, ready_display ]
           end
           puts ""
         end
@@ -219,7 +219,7 @@ module Resources
       require "shellwords"
 
       # Query all containers for this namespace
-      docker_cmd = 'docker ps -a --filter label=walheim.namespace=' + namespace + ' --format "{{.Label \\"walheim.app\\"}}|{{.State}}|{{.Status}}"'
+      docker_cmd = "docker ps -a --filter label=walheim.namespace=" + namespace + ' --format "{{.Label \\"walheim.app\\"}}|{{.State}}|{{.Status}}"'
       ssh_command = "ssh #{remote_host} #{Shellwords.escape(docker_cmd)} 2>/dev/null"
       output = `#{ssh_command}`
 
@@ -248,15 +248,15 @@ module Resources
         states = containers.map { |c| c[:state] }.uniq
         status = if states.all? { |s| s == "running" }
                    "Running"
-                 elsif states.all? { |s| s == "exited" }
+        elsif states.all? { |s| s == "exited" }
                    "Stopped"
-                 elsif states.include?("running")
+        elsif states.include?("running")
                    "Degraded"
-                 elsif states.include?("paused")
+        elsif states.include?("paused")
                    "Paused"
-                 else
+        else
                    "Unknown"
-                 end
+        end
 
         { name: app_name, status: status, ready: ready }
       end

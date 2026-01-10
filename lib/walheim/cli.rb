@@ -39,6 +39,45 @@ module Walheim
       puts "whctl version #{Walheim::VERSION}"
     end
 
+    # Exec command - custom implementation to support variadic arguments
+    desc "exec app NAME [--] COMMAND...", "Execute command in app container"
+    method_option :namespace,
+                  type: :string,
+                  aliases: [ :n ],
+                  desc: "Target namespace",
+                  required: true
+    method_option :service,
+                  type: :string,
+                  aliases: [ :s ],
+                  desc: "Target service (defaults to first)"
+    method_option :interactive,
+                  type: :boolean,
+                  aliases: [ :it ],
+                  desc: "Allocate pseudo-TTY and keep stdin open",
+                  default: false
+    def exec(kind, name, *command)
+      # Validate kind is 'app' or 'apps'
+      unless %w[app apps].include?(kind.downcase)
+        warn "Error: exec only supports 'app' kind, got '#{kind}'"
+        exit 1
+      end
+
+      # Resolve data directory from context
+      data_dir = BaseCommand.send(:resolve_data_dir, options, self.class.class_options.transform_keys(&:to_sym).transform_values { |v| options[v.name] rescue nil })
+
+      # Initialize Apps handler
+      handler = Resources::Apps.new(data_dir: data_dir)
+
+      # Call exec_command method
+      handler.exec_command(
+        namespace: options[:namespace],
+        name: name,
+        service: options[:service],
+        interactive: options[:interactive],
+        command: command
+      )
+    end
+
     # Override help to maintain kubectl-style help
     def self.help(shell, subcommand = false)
       list = printable_commands(true, subcommand)
