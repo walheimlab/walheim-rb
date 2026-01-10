@@ -87,6 +87,11 @@ module Resources
                       tail: { type: :numeric, desc: "Number of lines from end" },
                       timestamps: { type: :boolean, desc: "Show timestamps" }
                     }
+                  },
+                  pull: {
+                    description: "Pull latest images without restarting",
+                    usage: [ "pull app {name} -n {namespace}" ],
+                    options: { namespace: namespace_opt }
                   }
                 })
     end
@@ -231,6 +236,39 @@ module Resources
       # Use exec instead of system to replace current process
       # This allows proper signal handling (Ctrl+C) for --follow mode
       exec(ssh_command)
+    end
+
+    def pull(namespace:, name:)
+      # Get namespace config
+      namespace_config = load_namespace_config(namespace)
+      username = namespace_config["username"]
+      hostname = namespace_config["hostname"]
+
+      remote_host = username ? "#{username}@#{hostname}" : hostname
+      remote_dir = "/data/walheim/apps/#{name}"
+
+      # Check if remote directory exists
+      check_command = "ssh #{remote_host} 'test -d #{remote_dir}'"
+      dir_exists = system(check_command)
+
+      unless dir_exists
+        warn "Error: app '#{name}' not found on #{remote_host}"
+        warn "Deploy the app first using 'whctl apply app #{name} -n #{namespace}'"
+        exit 1
+      end
+
+      # Pull latest images
+      puts "Pulling latest images for '#{name}' on #{remote_host}"
+      ssh_command = "ssh #{remote_host} 'cd #{remote_dir} && docker compose pull'"
+      result = system(ssh_command)
+
+      unless result
+        warn "Error: docker compose pull failed"
+        exit 1
+      end
+
+      puts "Successfully pulled latest images for app '#{name}' in namespace '#{namespace}'"
+      puts "Use 'whctl start app #{name} -n #{namespace}' to apply the pulled images"
     end
 
     private

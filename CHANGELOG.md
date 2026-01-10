@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `whctl pull` command for apps to pull latest images without restarting containers
+
 ## [0.1.0] - TBD
 
 ### Added
