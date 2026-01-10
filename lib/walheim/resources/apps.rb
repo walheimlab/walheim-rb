@@ -137,6 +137,17 @@ module Resources
                       named_params: { namespace: :namespace },
                       namespace_handling: :required
                     }
+                  },
+                  describe: {
+                    description: "Show running status of app containers",
+                    usage: [ "describe app {name} -n {namespace}" ],
+                    options: { namespace: namespace_opt },
+                    dispatch: {
+                      method: :describe,
+                      params: [:name],
+                      named_params: { namespace: :namespace },
+                      namespace_handling: :required
+                    }
                   }
                 })
     end
@@ -314,6 +325,45 @@ module Resources
 
       puts "Successfully pulled latest images for app '#{name}' in namespace '#{namespace}'"
       puts "Use 'whctl start app #{name} -n #{namespace}' to apply the pulled images"
+    end
+
+    def describe(namespace:, name:)
+      # Get namespace config
+      namespace_config = load_namespace_config(namespace)
+      username = namespace_config["username"]
+      hostname = namespace_config["hostname"]
+
+      remote_host = username ? "#{username}@#{hostname}" : hostname
+      remote_dir = "/data/walheim/apps/#{name}"
+
+      # Check if remote directory exists
+      check_command = "ssh #{remote_host} 'test -d #{remote_dir}'"
+      dir_exists = system(check_command)
+
+      unless dir_exists
+        warn "Error: app '#{name}' not found on #{remote_host}"
+        warn "Deploy the app first using 'whctl apply app #{name} -n #{namespace}'"
+        exit 1
+      end
+
+      # Display container status using docker compose ps
+      puts "Status of '#{name}' on #{remote_host}:\n\n"
+
+      # Get container status
+      ps_command = "ssh #{remote_host} 'cd #{remote_dir} && docker compose ps'"
+      system(ps_command)
+
+      puts "\n"
+
+      # Get resource usage for running containers
+      stats_command = "ssh #{remote_host} 'cd #{remote_dir} && docker compose ps -q | xargs -r docker stats --no-stream --format \"table {{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}\\t{{.NetIO}}\\t{{.BlockIO}}\"'"
+
+      puts "Resource Usage:"
+      stats_result = system(stats_command)
+
+      unless stats_result
+        puts "(No running containers or unable to fetch stats)"
+      end
     end
 
     private
