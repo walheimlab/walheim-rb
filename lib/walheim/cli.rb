@@ -7,6 +7,11 @@ require_relative "cli/resource_command"
 
 module Walheim
   class CLI < Thor
+    # Exit with non-zero status on errors
+    def self.exit_on_failure?
+      true
+    end
+
     # Global flags
     class_option :context,
                  type: :string,
