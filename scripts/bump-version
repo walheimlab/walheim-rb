@@ -1,0 +1,115 @@
+#!/bin/bash
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to display usage
+usage() {
+  echo "Usage: $0 <major|minor|patch>"
+  echo ""
+  echo "Bumps the version, commits, and creates a git tag."
+  echo ""
+  echo "Arguments:"
+  echo "  major    Bump major version (X.0.0)"
+  echo "  minor    Bump minor version (x.Y.0)"
+  echo "  patch    Bump patch version (x.y.Z)"
+  exit 1
+}
+
+# Check if argument is provided
+if [ $# -ne 1 ]; then
+  echo -e "${RED}Error: Version type argument required${NC}"
+  usage
+fi
+
+VERSION_TYPE=$1
+VERSION_FILE="lib/walheim/version.rb"
+
+# Validate version type
+if [[ ! "$VERSION_TYPE" =~ ^(major|minor|patch)$ ]]; then
+  echo -e "${RED}Error: Invalid version type '$VERSION_TYPE'${NC}"
+  usage
+fi
+
+# Check if version file exists
+if [ ! -f "$VERSION_FILE" ]; then
+  echo -e "${RED}Error: Version file not found: $VERSION_FILE${NC}"
+  exit 1
+fi
+
+# Fetch tags from remote
+echo -e "${YELLOW}Fetching tags from remote...${NC}"
+git fetch --tags
+
+# Extract current version from version.rb
+CURRENT_VERSION=$(grep 'VERSION = ' "$VERSION_FILE" | sed -E 's/.*VERSION = "([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+
+if [ -z "$CURRENT_VERSION" ]; then
+  echo -e "${RED}Error: Could not parse current version from $VERSION_FILE${NC}"
+  exit 1
+fi
+
+echo -e "${GREEN}Current version: $CURRENT_VERSION${NC}"
+
+# Parse version components
+IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+MAJOR="${VERSION_PARTS[0]}"
+MINOR="${VERSION_PARTS[1]}"
+PATCH="${VERSION_PARTS[2]}"
+
+# Bump version based on type
+case "$VERSION_TYPE" in
+  major)
+    MAJOR=$((MAJOR + 1))
+    MINOR=0
+    PATCH=0
+    ;;
+  minor)
+    MINOR=$((MINOR + 1))
+    PATCH=0
+    ;;
+  patch)
+    PATCH=$((PATCH + 1))
+    ;;
+esac
+
+NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+echo -e "${GREEN}New version: $NEW_VERSION${NC}"
+
+# Check if tag already exists
+TAG_NAME="v$NEW_VERSION"
+if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+  echo -e "${RED}Error: Tag $TAG_NAME already exists${NC}"
+  exit 1
+fi
+
+# Update version file
+echo -e "${YELLOW}Updating $VERSION_FILE...${NC}"
+sed -i.bak -E "s/(VERSION = \")[0-9]+\.[0-9]+\.[0-9]+/\1$NEW_VERSION/" "$VERSION_FILE"
+rm "${VERSION_FILE}.bak"
+
+# Show the diff
+echo -e "${YELLOW}Changes:${NC}"
+git diff "$VERSION_FILE"
+
+# Commit the change
+COMMIT_MESSAGE="build(version): bump version to v$NEW_VERSION"
+echo -e "${YELLOW}Committing changes...${NC}"
+git add "$VERSION_FILE"
+git commit -m "$COMMIT_MESSAGE"
+
+# Create tag
+echo -e "${YELLOW}Creating tag $TAG_NAME...${NC}"
+git tag "$TAG_NAME"
+
+echo -e "${GREEN}✓ Successfully bumped version to $NEW_VERSION${NC}"
+echo -e "${GREEN}✓ Created tag $TAG_NAME${NC}"
+echo ""
+echo -e "${YELLOW}Next steps:${NC}"
+echo "  git push origin main"
+echo "  git push origin $TAG_NAME"

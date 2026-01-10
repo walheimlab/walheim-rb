@@ -19,7 +19,7 @@ Gem::Specification.new do |spec|
   spec.metadata['changelog_uri'] = 'https://github.com/walheimlab/walheim-rb/blob/main/CHANGELOG.md'
 
   # Specify which files should be added to the gem when it is released.
-  spec.files = Dir.glob('{bin,lib}/**/*') + %w[README.md]
+  spec.files = Dir.glob('lib/**/*') + %w[README.md bin/whctl]
   spec.bindir = 'bin'
   spec.executables = [ 'whctl' ]
   spec.require_paths = [ 'lib' ]
