@@ -1,5 +1,7 @@
 # Walheim
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/walheimlab/walheim-rb)
+
 A kubectl-style CLI for managing Docker-based homelab infrastructure across multiple machines.
 
 ## Overview
