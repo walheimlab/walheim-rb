@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "shellwords"
 require_relative "../namespaced_resource"
 require_relative "../sync"
 require_relative "../handler_registry"
@@ -35,8 +36,9 @@ module Resources
           # Extract first service's image from compose spec
           manifest.dig("spec", "compose", "services")&.values&.first&.dig("image") || "N/A"
         },
-        status: lambda { |_manifest|
-          # Could check if app is running, for now just show 'Configured'
+        status: lambda { |manifest|
+          # Actual status is fetched and cached by get() method
+          # This lambda reads from the cache
           "Configured"
         }
       }
@@ -364,6 +366,146 @@ module Resources
       unless stats_result
         puts "(No running containers or unable to fetch stats)"
       end
+    end
+
+    # Override get to pre-fetch container status
+    def get(namespace:, name: nil)
+      # Determine which namespaces to fetch status for
+      namespaces_to_fetch = if namespace.nil?
+                              # Fetching all namespaces
+                              all_namespace_names
+      elsif name.nil?
+                              # Fetching single namespace
+                              [namespace]
+      else
+                              # Fetching single resource
+                              [namespace]
+      end
+
+      # Pre-fetch container status for relevant namespaces
+      fetch_container_status_batch(namespaces_to_fetch)
+
+      # Call parent get implementation
+      super
+    end
+
+    private
+
+    def all_namespace_names
+      namespaces_dir = File.join(@data_dir, "namespaces")
+      return [] unless Dir.exist?(namespaces_dir)
+
+      Dir.entries(namespaces_dir)
+         .select { |entry| File.directory?(File.join(namespaces_dir, entry)) && !entry.start_with?(".") }
+         .select { |entry| File.exist?(File.join(namespaces_dir, entry, ".namespace.yaml")) }
+         .sort
+    end
+
+    def fetch_container_status_batch(namespaces)
+      # Initialize cache if not exists
+      @container_status_cache ||= {}
+
+      # Group namespaces by hostname to batch SSH calls
+      namespace_by_host = {}
+
+      namespaces.each do |ns|
+        begin
+          config = load_namespace_config(ns)
+          hostname = config["hostname"]
+          username = config["username"]
+          host_key = username ? "#{username}@#{hostname}" : hostname
+
+          namespace_by_host[host_key] ||= { namespaces: [], config: config }
+          namespace_by_host[host_key][:namespaces] << ns
+        rescue StandardError
+          # Skip if namespace config not found
+          next
+        end
+      end
+
+      # Fetch status from each unique host
+      namespace_by_host.each do |host_key, data|
+        fetch_status_from_host(host_key, data[:namespaces])
+      end
+    end
+
+    def fetch_status_from_host(remote_host, namespaces)
+      # Query all walheim-managed containers on this host
+      # Use docker ps with labels to get all containers in one call
+      # Use double quotes and escape for proper SSH transmission
+      docker_cmd = 'docker ps -a --filter label=walheim.managed=true --format "{{.Label \\"walheim.namespace\\"}}|{{.Label \\"walheim.app\\"}}|{{.State}}|{{.Status}}"'
+
+      ssh_command = "ssh #{remote_host} #{Shellwords.escape(docker_cmd)} 2>/dev/null"
+
+      output = `#{ssh_command}`
+
+      # Parse output and populate cache
+      # Format: namespace|appname|state|status
+      output.each_line do |line|
+        parts = line.strip.split("|")
+        next if parts.size < 4
+
+        ns = parts[0]
+        app_name = parts[1]
+        state = parts[2]      # running, exited, paused, etc.
+        status_text = parts[3] # "Up 2 hours", "Exited (0) 5 minutes ago", etc.
+
+        # Only cache for namespaces we're querying
+        next unless namespaces.include?(ns)
+
+        cache_key = "#{ns}/#{app_name}"
+        @container_status_cache[cache_key] ||= { containers: [] }
+        @container_status_cache[cache_key][:containers] << {
+          state: state,
+          status: status_text
+        }
+      end
+
+      # Mark namespaces as queried (even if no containers found)
+      namespaces.each do |ns|
+        @container_status_cache["_queried_#{ns}"] = true
+      end
+    end
+
+    def get_container_status(namespace, app_name)
+      cache_key = "#{namespace}/#{app_name}"
+
+      # Check if we've queried this namespace
+      return "Unknown" unless @container_status_cache&.dig("_queried_#{namespace}")
+
+      # Get cached container data
+      cached_data = @container_status_cache&.dig(cache_key)
+      return "Not Deployed" if cached_data.nil? || cached_data[:containers].empty?
+
+      # Aggregate status from all containers
+      containers = cached_data[:containers]
+      states = containers.map { |c| c[:state] }.uniq
+
+      if states.all? { |s| s == "running" }
+        "Running"
+      elsif states.all? { |s| s == "exited" }
+        "Stopped"
+      elsif states.include?("running")
+        "Degraded"
+      elsif states.include?("paused")
+        "Paused"
+      elsif states.include?("restarting")
+        "Restarting"
+      else
+        "Unknown"
+      end
+    end
+
+    # Override get_single_resource to inject actual status
+    def get_single_resource(namespace, name)
+      result = super
+
+      # Override status with actual container status
+      if result[:summary]
+        result[:summary][:status] = get_container_status(namespace, name)
+      end
+
+      result
     end
 
     private
