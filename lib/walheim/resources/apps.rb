@@ -37,6 +37,11 @@ module Resources
           # Extract first service's image from compose spec
           manifest.dig("spec", "compose", "services")&.values&.first&.dig("image") || "N/A"
         },
+        ready: lambda { |manifest|
+          # Actual ready count is fetched and cached by get() method
+          # This lambda is a placeholder
+          "-"
+        },
         status: lambda { |manifest|
           # Actual status is fetched and cached by get() method
           # This lambda reads from the cache
@@ -508,13 +513,32 @@ module Resources
       end
     end
 
-    # Override get_single_resource to inject actual status
+    def get_container_ready(namespace, app_name)
+      cache_key = "#{namespace}/#{app_name}"
+
+      # Check if we've queried this namespace
+      return "-" unless @container_status_cache&.dig("_queried_#{namespace}")
+
+      # Get cached container data
+      cached_data = @container_status_cache&.dig(cache_key)
+      return "-" if cached_data.nil? || cached_data[:containers].empty?
+
+      # Count running vs total containers
+      containers = cached_data[:containers]
+      total = containers.size
+      running = containers.count { |c| c[:state] == "running" }
+
+      "#{running}/#{total}"
+    end
+
+    # Override get_single_resource to inject actual status and ready
     def get_single_resource(namespace, name)
       result = super
 
-      # Override status with actual container status
+      # Override status and ready with actual container data
       if result[:summary]
         result[:summary][:status] = get_container_status(namespace, name)
+        result[:summary][:ready] = get_container_ready(namespace, name)
       end
 
       result
