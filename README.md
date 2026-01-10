@@ -216,7 +216,7 @@ Your homelab configuration lives in a data directory:
     │   │       └── docker-compose.yml
     │   ├── secrets/
     │   │   └── db-creds/
-    │   │       └── secret.yaml
+    │   │       └── .secret.yaml
     │   └── configmaps/
     │       └── app-config/
     │           └── configmap.yaml
@@ -388,7 +388,7 @@ These labels enable:
 
 - **NamespacedResource**: Resources within a namespace (e.g., apps, secrets, configmaps)
   - Apps: `{data_dir}/namespaces/{namespace}/apps/{name}/.app.yaml`
-  - Secrets: `{data_dir}/namespaces/{namespace}/secrets/{name}/secret.yaml`
+  - Secrets: `{data_dir}/namespaces/{namespace}/secrets/{name}/.secret.yaml`
   - ConfigMaps: `{data_dir}/namespaces/{namespace}/configmaps/{name}/configmap.yaml`
   - Example: `whctl get apps -n production`
   - Example: `whctl get cm --all` (alias for configmaps)

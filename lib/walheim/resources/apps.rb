@@ -918,7 +918,7 @@ module Resources
     def load_secret_data(namespace, secret_name)
       require "base64"
 
-      secret_path = File.join(@namespaces_dir, namespace, "secrets", secret_name, "secret.yaml")
+      secret_path = File.join(@namespaces_dir, namespace, "secrets", secret_name, ".secret.yaml")
 
       unless File.exist?(secret_path)
         warn "Error: secret '#{secret_name}' not found at #{secret_path}"

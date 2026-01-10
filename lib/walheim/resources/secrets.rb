@@ -35,7 +35,7 @@ module Resources
     private
 
     def manifest_filename
-      "secret.yaml"
+      ".secret.yaml"
     end
   end
 end

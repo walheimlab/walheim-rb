@@ -20,3 +20,6 @@ tmp
 *.swo
 *~
 
+
+# bv (beads viewer) local config and caches
+.bv/
