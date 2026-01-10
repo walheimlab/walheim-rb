@@ -72,7 +72,7 @@ module Walheim
 
     def self.validate_namespace_options!(operation, kind, _name, options)
       # Operations that require namespace or --all
-      requires_namespace = %i[get apply delete start pause stop logs import]
+      requires_namespace = %i[get apply delete start pause stop logs pull import]
       return unless requires_namespace.include?(operation)
 
       # get can use --all
@@ -108,7 +108,7 @@ module Walheim
         # Special case: import app
         compose_manifest = Walheim::Helpers.read_yaml_input(options[:file])
         handler.import(namespace: options[:namespace], name: name, compose_manifest: compose_manifest)
-      when :start, :pause, :stop
+      when :start, :pause, :stop, :pull
         handler.send(operation, namespace: options[:namespace], name: name)
       when :logs
         log_opts = {}
