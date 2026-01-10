@@ -27,6 +27,7 @@ Gem::Specification.new do |spec|
   # Dependencies
   spec.add_dependency 'terminal-table', '~> 3.0'
   spec.add_dependency 'thor', '~> 1.3'
+  spec.add_dependency 'parallel', '~> 1.24'
 
   # Development dependencies
   spec.add_development_dependency 'bundler', '~> 2.0'

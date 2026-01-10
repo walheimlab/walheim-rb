@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "shellwords"
+require "parallel"
 require_relative "../namespaced_resource"
 require_relative "../sync"
 require_relative "../handler_registry"
@@ -423,9 +424,15 @@ module Resources
         end
       end
 
-      # Fetch status from each unique host
-      namespace_by_host.each do |host_key, data|
+      # Fetch status from each unique host in parallel
+      # Use Parallel.map to parallelize SSH calls across hosts
+      results = Parallel.map(namespace_by_host, in_threads: namespace_by_host.size) do |host_key, data|
         fetch_status_from_host(host_key, data[:namespaces])
+      end
+
+      # Merge results into cache
+      results.each do |result|
+        @container_status_cache.merge!(result) if result
       end
     end
 
@@ -439,7 +446,10 @@ module Resources
 
       output = `#{ssh_command}`
 
-      # Parse output and populate cache
+      # Build result hash to return (thread-safe)
+      result = {}
+
+      # Parse output and populate result
       # Format: namespace|appname|state|status
       output.each_line do |line|
         parts = line.strip.split("|")
@@ -454,8 +464,8 @@ module Resources
         next unless namespaces.include?(ns)
 
         cache_key = "#{ns}/#{app_name}"
-        @container_status_cache[cache_key] ||= { containers: [] }
-        @container_status_cache[cache_key][:containers] << {
+        result[cache_key] ||= { containers: [] }
+        result[cache_key][:containers] << {
           state: state,
           status: status_text
         }
@@ -463,8 +473,10 @@ module Resources
 
       # Mark namespaces as queried (even if no containers found)
       namespaces.each do |ns|
-        @container_status_cache["_queried_#{ns}"] = true
+        result["_queried_#{ns}"] = true
       end
+
+      result
     end
 
     def get_container_status(namespace, app_name)
@@ -475,7 +487,7 @@ module Resources
 
       # Get cached container data
       cached_data = @container_status_cache&.dig(cache_key)
-      return "Not Deployed" if cached_data.nil? || cached_data[:containers].empty?
+      return "NotFound" if cached_data.nil? || cached_data[:containers].empty?
 
       # Aggregate status from all containers
       containers = cached_data[:containers]
