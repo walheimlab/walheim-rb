@@ -421,6 +421,110 @@ staging      redis       redis:7                0/1    Stopped
 - Status is aggregated from all containers in the app
 - Efficient batch queries minimize SSH overhead
 
+## kubectl Feature Parity
+
+Walheim borrows from kubectl's UX but is intentionally scoped for Docker-based homelabs. This section documents which kubectl features are implemented, planned, or marked as WONTDO.
+
+### Resource Operations
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `get` | ✅ Implemented | List resources with table output |
+| `describe` | ✅ Implemented | Detailed resource information (namespaces, apps) |
+| `apply` | ✅ Implemented | Create/update resources (apps, secrets, configmaps) |
+| `create` | ✅ Implemented | Create namespaces |
+| `delete` | ✅ Implemented | Delete secrets and configmaps |
+| `edit` | 🚧 Planned | Interactive editing of resources |
+| `patch` | 🚧 Planned | Partial resource updates |
+
+### Filtering and Selection
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `-n, --namespace` | ✅ Implemented | Target specific namespace |
+| `--all, -A` | ✅ Implemented | List across all namespaces |
+| Label selectors (`-l`) | 🚧 Planned | Filter by labels (e.g., `-l app=nginx`) |
+| Field selectors | 🚧 Planned | Filter by field values |
+
+### Output Formats
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Table output | ✅ Implemented | Default output format |
+| `-o yaml` | 🚧 Planned | YAML output format |
+| `-o json` | 🚧 Planned | JSON output format |
+| `-o wide` | 🚧 Planned | Additional columns in table output |
+
+### Context and Configuration
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `context new` | ✅ Implemented | Create new contexts |
+| `context list` | ✅ Implemented | List all contexts |
+| `context use` | ✅ Implemented | Switch active context |
+| `context current` | ✅ Implemented | Show current context |
+| `context delete` | ✅ Implemented | Delete contexts |
+| `--context` flag | ✅ Implemented | Override context for single command |
+| Config file | ✅ Implemented | `~/.walheim/config` |
+
+### Container Interaction
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `exec` | ✅ Implemented | Execute commands in containers |
+| `logs` | ✅ Implemented | View container logs with `--follow`, `--tail`, `--timestamps` |
+| `port-forward` | ❌ WONTDO | Use SSH tunnels instead (`ssh -L`) |
+| `attach` | 🚧 Planned | Attach to running container |
+| `cp` | 🚧 Planned | Copy files to/from containers |
+
+### Application Lifecycle
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `apply` | ✅ Implemented | Deploy apps with environment injection |
+| `start` | ✅ Implemented | Start stopped apps |
+| `pause` | ✅ Implemented | Pause apps (stop containers, keep files) |
+| `stop` | ✅ Implemented | Stop and remove apps from remote |
+| `pull` | ✅ Implemented | Pull latest images without restart |
+| `scale` | ❌ WONTDO | No scheduling; manually edit docker-compose replicas |
+| `rollout` | ❌ WONTDO | Manual rollback via docker compose |
+| `rollout history` | ❌ WONTDO | Track manually in Git commits |
+
+### Access Control and Security
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| RBAC | ❌ WONTDO | Use SSH key-based permissions per namespace |
+| Service accounts | ❌ WONTDO | Use SSH users |
+| Network policies | ❌ WONTDO | Configure via Docker networks and firewall rules |
+
+### Metadata and Labels
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Automatic labels | ✅ Implemented | `walheim.managed`, `walheim.namespace`, `walheim.app` |
+| Injection tracking | ✅ Implemented | `walheim.injected-env.*` labels |
+| Custom metadata | ✅ Implemented | Via `metadata.labels` in manifests |
+| Annotations | 🚧 Planned | Arbitrary metadata storage |
+
+### Multi-Tenancy
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Namespace isolation | ❌ WONTDO | Namespaces = physical machines, isolated by SSH/network |
+| Resource quotas | ❌ WONTDO | Manage manually via Docker resource limits |
+| Limit ranges | ❌ WONTDO | Set in docker-compose directly |
+
+### Key Differences from kubectl
+
+**Philosophy**: Walheim is designed for homelab simplicity, not production Kubernetes orchestration.
+
+- **No scheduler**: You explicitly target namespaces; no automatic pod placement
+- **No control plane**: Each namespace is independent; no central API server
+- **Physical = logical**: Namespaces map 1:1 to physical machines
+- **SSH-based**: Deployment uses rsync + SSH, not kubelet
+- **Git as state**: Your data directory is the source of truth (GitOps-friendly)
+
 ## Global Flags
 
 ```bash
