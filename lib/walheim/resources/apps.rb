@@ -219,8 +219,8 @@ module Resources
     def pause(namespace:, name:)
       # Get namespace config
       namespace_config = load_namespace_config(namespace)
-      username = namespace_config["username"]
-      hostname = namespace_config["hostname"]
+      username = extract_username(namespace_config)
+      hostname = extract_hostname(namespace_config)
 
       remote_host = username ? "#{username}@#{hostname}" : hostname
       remote_dir = "/data/walheim/apps/#{name}"
@@ -252,8 +252,8 @@ module Resources
 
       # Then remove files from remote
       namespace_config = load_namespace_config(namespace)
-      username = namespace_config["username"]
-      hostname = namespace_config["hostname"]
+      username = extract_username(namespace_config)
+      hostname = extract_hostname(namespace_config)
 
       remote_host = username ? "#{username}@#{hostname}" : hostname
       remote_dir = "/data/walheim/apps/#{name}"
@@ -273,8 +273,8 @@ module Resources
     def logs(namespace:, name:, follow: false, tail: nil, timestamps: false)
       # Get namespace config
       namespace_config = load_namespace_config(namespace)
-      username = namespace_config["username"]
-      hostname = namespace_config["hostname"]
+      username = extract_username(namespace_config)
+      hostname = extract_hostname(namespace_config)
 
       remote_host = username ? "#{username}@#{hostname}" : hostname
       remote_dir = "/data/walheim/apps/#{name}"
@@ -305,8 +305,8 @@ module Resources
     def pull(namespace:, name:)
       # Get namespace config
       namespace_config = load_namespace_config(namespace)
-      username = namespace_config["username"]
-      hostname = namespace_config["hostname"]
+      username = extract_username(namespace_config)
+      hostname = extract_hostname(namespace_config)
 
       remote_host = username ? "#{username}@#{hostname}" : hostname
       remote_dir = "/data/walheim/apps/#{name}"
@@ -338,8 +338,8 @@ module Resources
     def describe(namespace:, name:)
       # Get namespace config
       namespace_config = load_namespace_config(namespace)
-      username = namespace_config["username"]
-      hostname = namespace_config["hostname"]
+      username = extract_username(namespace_config)
+      hostname = extract_hostname(namespace_config)
 
       remote_host = username ? "#{username}@#{hostname}" : hostname
       remote_dir = "/data/walheim/apps/#{name}"
@@ -377,8 +377,8 @@ module Resources
     def exec_command(namespace:, name:, service: nil, interactive: false, command:)
       # Get namespace config
       namespace_config = load_namespace_config(namespace)
-      username = namespace_config["username"]
-      hostname = namespace_config["hostname"]
+      username = extract_username(namespace_config)
+      hostname = extract_hostname(namespace_config)
 
       remote_host = username ? "#{username}@#{hostname}" : hostname
       remote_dir = "/data/walheim/apps/#{name}"
@@ -476,8 +476,8 @@ module Resources
       namespaces.each do |ns|
         begin
           config = load_namespace_config(ns)
-          hostname = config["hostname"]
-          username = config["username"]
+          hostname = extract_hostname(config)
+          username = extract_username(config)
           host_key = username ? "#{username}@#{hostname}" : hostname
 
           namespace_by_host[host_key] ||= { namespaces: [], config: config }
@@ -950,6 +950,16 @@ module Resources
       end
 
       YAML.load_file(config_path)
+    end
+
+    # Extract username from namespace config (supports both old and new formats)
+    def extract_username(config)
+      config.dig("spec", "username") || config["username"]
+    end
+
+    # Extract hostname from namespace config (supports both old and new formats)
+    def extract_hostname(config)
+      config.dig("spec", "hostname") || config["hostname"]
     end
   end
 end

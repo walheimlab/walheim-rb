@@ -17,8 +17,14 @@ module Resources
 
     def self.summary_fields
       {
-        username: ->(manifest) { manifest["username"] || "N/A" },
-        hostname: ->(manifest) { manifest["hostname"] || "N/A" }
+        username: lambda { |manifest|
+          # Support both old format (username at root) and new format (username in spec)
+          manifest.dig("spec", "username") || manifest["username"] || "N/A"
+        },
+        hostname: lambda { |manifest|
+          # Support both old format (hostname at root) and new format (hostname in spec)
+          manifest.dig("spec", "hostname") || manifest["hostname"] || "N/A"
+        }
       }
     end
 
@@ -102,10 +108,22 @@ module Resources
       Dir.mkdir(File.join(namespace_path, "secrets"))
       Dir.mkdir(File.join(namespace_path, "configmaps"))
 
-      # Create .namespace.yaml with optional username
-      config_content = "hostname: #{hostname}\n"
-      config_content = "username: #{username}\n#{config_content}" if username
-      File.write(File.join(namespace_path, ".namespace.yaml"), config_content)
+      # Create .namespace.yaml in k8s-style format
+      namespace_manifest = {
+        "apiVersion" => "walheim/v1alpha1",
+        "kind" => "Namespace",
+        "metadata" => {
+          "name" => name
+        },
+        "spec" => {
+          "hostname" => hostname
+        }
+      }
+
+      # Add username to spec if provided
+      namespace_manifest["spec"]["username"] = username if username
+
+      File.write(File.join(namespace_path, ".namespace.yaml"), YAML.dump(namespace_manifest))
 
       puts "Created namespace '#{name}' at #{namespace_path}"
       puts "  Username: #{username || '(from SSH config)'}"
@@ -128,8 +146,10 @@ module Resources
       end
 
       config = YAML.load_file(config_path)
-      username = config["username"]
-      hostname = config["hostname"]
+
+      # Support both old format (username/hostname at root) and new format (in spec)
+      username = config.dig("spec", "username") || config["username"]
+      hostname = config.dig("spec", "hostname") || config["hostname"]
       remote_host = username ? "#{username}@#{hostname}" : hostname
 
       # Print metadata

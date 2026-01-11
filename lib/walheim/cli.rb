@@ -39,6 +39,71 @@ module Walheim
       puts "whctl version #{Walheim::VERSION}"
     end
 
+    # Label command - manage labels on resources
+    desc "label KIND NAME KEY_1=VAL_1 ... [KEY_N-]", "Update labels on a resource"
+    long_desc <<~DESC
+      Update labels on a resource.
+
+      Examples:
+        # Set labels on a namespace
+        whctl label namespace production env=prod team=platform
+
+        # Set labels on an app
+        whctl label app myapp -n production tier=backend version=v1.2.3
+
+        # Remove a label (note the trailing -)
+        whctl label app myapp -n production old-label-
+
+        # Overwrite existing labels
+        whctl label secret db-creds -n production --overwrite tier=database
+
+        # List labels
+        whctl label namespace production --list
+    DESC
+    method_option :namespace,
+                  type: :string,
+                  aliases: [ :n ],
+                  desc: "Target namespace (for namespaced resources)"
+    method_option :overwrite,
+                  type: :boolean,
+                  desc: "Overwrite existing labels",
+                  default: false
+    method_option :list,
+                  type: :boolean,
+                  desc: "List all labels on the resource",
+                  default: false
+    def label(kind, name, *label_specs)
+      # Resolve data directory from context
+      data_dir = BaseCommand.send(:resolve_data_dir, options, self.class.class_options.transform_keys(&:to_sym).transform_values { |v| options[v.name] rescue nil })
+
+      # Check if we're listing labels
+      if options[:list]
+        Walheim::LabelOperations.list_labels(
+          data_dir: data_dir,
+          kind: kind,
+          name: name,
+          namespace: options[:namespace]
+        )
+      else
+        # Setting labels
+        if label_specs.empty?
+          warn "Error: no label specifications provided"
+          warn "Usage: whctl label KIND NAME KEY=VALUE [KEY=VALUE...] [KEY-]"
+          warn "       whctl label KIND NAME --list"
+          exit 1
+        end
+
+        Walheim::LabelOperations.set_labels(
+          data_dir: data_dir,
+          kind: kind,
+          name: name,
+          label_specs: label_specs,
+          namespace: options[:namespace],
+          overwrite: options[:overwrite]
+        )
+      end
+    end
+
     # Exec command - custom implementation to support variadic arguments
     desc "exec app NAME [--] COMMAND...", "Execute command in app container"
     method_option :namespace,

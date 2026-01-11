@@ -7,6 +7,7 @@ require_relative "walheim/resource"
 require_relative "walheim/cluster_resource"
 require_relative "walheim/namespaced_resource"
 require_relative "walheim/sync"
+require_relative "walheim/label_operations"
 
 # Load resource handlers
 require_relative "walheim/resources/namespaces"

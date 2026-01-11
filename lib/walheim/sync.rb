@@ -11,8 +11,9 @@ module Walheim
 
     def sync(namespace:, kind:, name:)
       namespace_config = load_namespace_config(namespace)
-      username = namespace_config["username"]
-      hostname = namespace_config["hostname"]
+      # Support both old format (username/hostname at root) and new format (in spec)
+      username = namespace_config.dig("spec", "username") || namespace_config["username"]
+      hostname = namespace_config.dig("spec", "hostname") || namespace_config["hostname"]
 
       # Build remote host string (with optional username)
       remote_host = username ? "#{username}@#{hostname}" : hostname
