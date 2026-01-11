@@ -1,0 +1,220 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'yaml'
+require 'fileutils'
+require 'optparse'
+
+# Migration script for namespace manifest format
+# Converts old format to new k8s-style format
+class NamespaceMigrator
+  def initialize(data_dir, dry_run: false, verbose: false)
+    @data_dir = File.expand_path(data_dir)
+    @dry_run = dry_run
+    @verbose = verbose
+    @stats = { total: 0, migrated: 0, skipped: 0, errors: 0 }
+  end
+
+  def run
+    validate_data_dir!
+
+    log "Scanning for namespace manifests in: #{@data_dir}"
+    log "Mode: #{@dry_run ? 'DRY RUN' : 'LIVE'}"
+    puts
+
+    namespace_files = find_namespace_files
+
+    if namespace_files.empty?
+      log "No namespace manifest files found."
+      return
+    end
+
+    log "Found #{namespace_files.size} namespace manifest(s)"
+    puts
+
+    namespace_files.each do |file|
+      migrate_file(file)
+    end
+
+    print_summary
+  end
+
+  private
+
+  def validate_data_dir!
+    unless Dir.exist?(@data_dir)
+      abort "Error: Data directory does not exist: #{@data_dir}"
+    end
+
+    namespaces_dir = File.join(@data_dir, 'namespaces')
+    unless Dir.exist?(namespaces_dir)
+      abort "Error: Namespaces directory not found: #{namespaces_dir}"
+    end
+  end
+
+  def find_namespace_files
+    pattern = File.join(@data_dir, 'namespaces', '*', '.namespace.yaml')
+    Dir.glob(pattern)
+  end
+
+  def migrate_file(file)
+    @stats[:total] += 1
+    namespace_name = File.basename(File.dirname(file))
+
+    log "Processing: #{namespace_name} (#{file})", prefix: "  "
+
+    begin
+      content = File.read(file)
+      data = YAML.load(content)
+
+      if data.nil? || !data.is_a?(Hash)
+        log "  ⚠️  Skipped: Invalid YAML or empty file", prefix: "    "
+        @stats[:skipped] += 1
+        return
+      end
+
+      if already_migrated?(data)
+        log "  ✓ Skipped: Already in new format", prefix: "    "
+        @stats[:skipped] += 1
+        return
+      end
+
+      new_manifest = transform_manifest(data, namespace_name)
+
+      if @dry_run
+        log "  ⟳ Would migrate:", prefix: "    "
+        puts indent_yaml(YAML.dump(new_manifest), 6)
+      else
+        backup_file(file)
+        File.write(file, YAML.dump(new_manifest))
+        log "  ✓ Migrated successfully", prefix: "    "
+      end
+
+      @stats[:migrated] += 1
+    rescue StandardError => e
+      log "  ✗ Error: #{e.message}", prefix: "    "
+      debug "    #{e.backtrace.first}"
+      @stats[:errors] += 1
+    end
+
+    puts
+  end
+
+  def already_migrated?(data)
+    data.key?('apiVersion') && data.key?('kind')
+  end
+
+  def transform_manifest(old_data, namespace_name)
+    # Extract existing labels if any
+    existing_labels = old_data.delete('labels') || {}
+
+    # Build new manifest
+    new_manifest = {
+      'apiVersion' => 'walheim/v1alpha1',
+      'kind' => 'Namespace',
+      'metadata' => {
+        'name' => namespace_name
+      },
+      'spec' => {}
+    }
+
+    # Add labels if they exist
+    new_manifest['metadata']['labels'] = existing_labels unless existing_labels.empty?
+
+    # Move username and hostname to spec
+    if old_data['username']
+      new_manifest['spec']['username'] = old_data.delete('username')
+    end
+
+    if old_data['hostname']
+      new_manifest['spec']['hostname'] = old_data.delete('hostname')
+    end
+
+    # Preserve any other fields that might exist
+    old_data.each do |key, value|
+      debug "    Preserving unknown field in spec: #{key}"
+      new_manifest['spec'][key] = value
+    end
+
+    new_manifest
+  end
+
+  def backup_file(file)
+    backup_path = "#{file}.backup.#{Time.now.strftime('%Y%m%d%H%M%S')}"
+    FileUtils.cp(file, backup_path)
+    debug "    Created backup: #{backup_path}"
+  end
+
+  def print_summary
+    puts "=" * 60
+    puts "Migration Summary"
+    puts "=" * 60
+    puts "Total files found:    #{@stats[:total]}"
+    puts "Migrated:             #{@stats[:migrated]}"
+    puts "Skipped:              #{@stats[:skipped]}"
+    puts "Errors:               #{@stats[:errors]}"
+    puts "=" * 60
+
+    if @dry_run && @stats[:migrated] > 0
+      puts
+      puts "This was a DRY RUN. No files were modified."
+      puts "Run without --dry-run to apply changes."
+    end
+  end
+
+  def log(message, prefix: "")
+    puts "#{prefix}#{message}"
+  end
+
+  def debug(message)
+    puts message if @verbose
+  end
+
+  def indent_yaml(yaml_string, spaces)
+    yaml_string.lines.map { |line| " " * spaces + line }.join
+  end
+end
+
+# CLI argument parsing
+options = { dry_run: false, verbose: false }
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: migrate-namespace-format [options] DATA_DIR"
+  opts.separator ""
+  opts.separator "Migrate namespace manifests from old format to new k8s-style format"
+  opts.separator ""
+  opts.separator "Options:"
+
+  opts.on("-d", "--dry-run", "Show what would be changed without modifying files") do
+    options[:dry_run] = true
+  end
+
+  opts.on("-v", "--verbose", "Show detailed output") do
+    options[:verbose] = true
+  end
+
+  opts.on("-h", "--help", "Show this help message") do
+    puts opts
+    exit
+  end
+end
+
+begin
+  parser.parse!
+
+  if ARGV.empty?
+    puts "Error: DATA_DIR argument is required"
+    puts
+    puts parser
+    exit 1
+  end
+
+  data_dir = ARGV[0]
+  migrator = NamespaceMigrator.new(data_dir, dry_run: options[:dry_run], verbose: options[:verbose])
+  migrator.run
+
+rescue OptionParser::InvalidOption => e
+  puts "Error: #{e.message}"
+  puts
+  puts parser
+  exit 1
+end
